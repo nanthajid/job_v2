@@ -1,0 +1,59 @@
+table structure
+
+TABLE `employee` (
+  `EmpID` varchar(15) NOT NULL,
+  `EmpName` varchar(100) DEFAULT NULL,
+  `SexNo` int(1) DEFAULT NULL,
+  `KNo` int(1) DEFAULT NULL,
+  `Phone` varchar(15) DEFAULT NULL,
+  `Address` text DEFAULT NULL,
+  `SDate` datetime DEFAULT NULL,
+  PRIMARY KEY (`EmpID`)
+)
+
+TABLE `register` (
+  `DocNo` int(11) NOT NULL AUTO_INCREMENT,
+  `DocID` varchar(16) DEFAULT NULL,
+  `RDate` varchar(15) DEFAULT NULL,
+  `SDate` datetime DEFAULT NULL,
+  `QNo` int(1) DEFAULT NULL,
+  `KNo` int(2) DEFAULT NULL,
+  `SexNo` int(1) DEFAULT NULL,
+  `EmpID` varchar(15) DEFAULT NULL,
+  `StID` varchar(15) DEFAULT NULL,
+  PRIMARY KEY (`DocNo`),
+  UNIQUE KEY `register_index` (`DocNo`)
+)
+
+TABLE `selft_rep` (
+  `DocNo` int(11) NOT NULL AUTO_INCREMENT,
+  `DocID` varchar(16) DEFAULT NULL,
+  `RDate` varchar(15) DEFAULT NULL,
+  `SDate` datetime DEFAULT NULL,
+  `QNo` int(1) DEFAULT NULL,
+  `JNo` int(1) DEFAULT NULL,
+  `KNo` int(2) DEFAULT NULL,
+  `SexNo` int(1) DEFAULT NULL,
+  `EmpID` varchar(15) DEFAULT NULL,
+  `StID` varchar(15) DEFAULT NULL,
+  PRIMARY KEY (`DocNo`),
+  UNIQUE KEY `register_index` (`DocNo`)
+)
+
+TABLE `job` (
+  `JNo` int(11) NOT NULL,
+  `JName` varchar(255) NOT NULL,
+  PRIMARY KEY (`JNo`)
+)
+
+TABLE `quit` (
+  `QNo` int(1) NOT NULL,
+  `QName` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`QNo`)
+)
+
+TABLE `kate` (
+  `KNo` int(3) NOT NULL,
+  `KName` varchar(50) DEFAULT '',
+  PRIMARY KEY (`KNo`)
+)

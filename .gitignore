@@ -1,0 +1,13 @@
+# Database config (contains sensitive credentials)
+config/database.php
+
+# Data files
+data/
+
+# OS files
+Thumbs.db
+Desktop.ini
+
+# Tool specific
+.claude/
+.gemini/
