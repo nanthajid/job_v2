@@ -27,12 +27,14 @@ if ($validDate($dateTo)) {
 }
 $where = $conds ? ' AND ' . implode(' AND ', $conds) : '';
 
-$sql = "SELECT s.DocID, s.EmpID, e.EmpName, s.RDate, k.KName, q.QName, j.JName
+$sql = "SELECT s.DocID, s.EmpID, t.Title AS TitleName, e.EmpName, s.RDate, k.KName, q.QName, j.JName, pot.PotName
         FROM selft_rep s
         LEFT JOIN employee e ON e.EmpID = s.EmpID
+        LEFT JOIN titles   t ON t.TitleNo = e.Titles
         LEFT JOIN kate     k ON k.KNo   = s.KNo
         LEFT JOIN quit     q ON q.QNo   = s.QNo
         LEFT JOIN job      j ON j.JNo   = s.JNo
+        LEFT JOIN emp_position pot ON pot.PotNo = s.PotNo
         WHERE 1=1 $where
         ORDER BY s.RDate ASC, s.DocNo ASC";
 
@@ -167,7 +169,7 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
     
     table.table-report { width: 100%; border-collapse: collapse; margin-top: 15px; }
     table.table-report th, table.table-report td {
-      border: 1px solid #dee2e6 !important;
+      border: 1px dashed #dee2e6 !important;
       padding: 10px 6px;
       text-align: center;
       vertical-align: middle;
@@ -178,7 +180,7 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
       color: var(--gov-navy) !important;
       font-weight: 700; 
       font-size: 13px;
-      border-bottom: 2px solid var(--gov-border) !important;
+      border-bottom: 2px dashed #dee2e6 !important;
     }
     table.table-report tbody td.text-left { text-align: left; padding-left: 10px; }
 
@@ -188,7 +190,7 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
       justify-content: space-between;
       font-size: 12px;
       color: var(--gov-text-muted);
-      border-top: 1px solid var(--gov-border);
+      border-top: 1px dashed #dee2e6;
       padding-top: 15px;
     }
 
@@ -214,8 +216,8 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
         border-radius: 0;
       }
       .doc-header h1, .doc-header h2 { color: #000; }
-      table.table-report th, table.table-report td { border: 1px solid #000 !important; }
-      table.table-report thead th { background: #eee !important; color: #000 !important; }
+      table.table-report th, table.table-report td { border: 1px dashed #bbb !important; }
+      table.table-report thead th { background: #f8f9fa !important; color: #000 !important; }
       @page { size: A4 portrait; margin: 15mm 10mm; }
     }
 
@@ -235,6 +237,11 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
           <i class="fas fa-bars text-navy"></i>
         </a>
       </li>
+      <li class="nav-item d-none d-lg-block">
+        <span class="nav-link text-navy font-weight-bold">
+          <i class="fas fa-desktop mr-2"></i>ระบบจัดการคนว่างงาน สำนักงานจัดหางานกรุงเทพมหานครพื้นที่ 2
+        </span>
+      </li>
     </ul>
 
     <ul class="navbar-nav ml-auto">
@@ -248,7 +255,7 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
           <div class="d-flex align-items-center">
             <div class="text-right mr-2 d-none d-sm-block">
               <div class="font-weight-bold" style="line-height:1;"><?= htmlspecialchars($user['StName'] ?: $user['UserName']) ?></div>
-              <small class="text-muted"><?= htmlspecialchars($user['StPost'] ?: 'เจ้าหน้าที่') ?></small>
+              <small class="text-muted"><?= htmlspecialchars($user['StPostName'] ?: ($user['StPost'] ?: 'เจ้าหน้าที่')) ?></small>
             </div>
             <i class="fas fa-user-circle fa-2x text-navy"></i>
           </div>
@@ -317,7 +324,7 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
                   <button type="button" class="btn btn-success px-4 shadow-sm ml-2" onclick="window.print()" style="background-color: #28a745; border-color: #28a745; border-radius: 8px; padding: 0.6rem 1.5rem;">
                     <i class="fas fa-print mr-2"></i>พิมพ์รายงาน
                   </button>
-                  <a href="daily_checkin_print.php" class="btn btn-gov-outline ml-2" style="padding: 0.6rem 1.5rem;">
+                  <a href="daily_checkin_print.php" class="btn btn-secondary ml-2" style="padding: 0.6rem 1.5rem;">
                     <i class="fas fa-redo mr-2"></i>ล้าง
                   </a>
                 </div>
@@ -338,13 +345,13 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
             <thead>
               <tr>
                 <th style="width: 5%;">ลำดับ</th>
-                <th style="width: 12%;">วันที่รายงาน</th>
-                <th style="width: 13%;">เลขที่เอกสาร</th>
-                <th style="width: 13%;">เลขบัตรประชาชน</th>
-                <th style="width: 18%;">ชื่อ-นามสกุล</th>
-                <th style="width: 13%;">เขต</th>
-                <th style="width: 13%;">สาเหตุที่ออก</th>
-                <th style="width: 13%;">สถานะงาน</th>
+                <th style="width: 13%;">วันที่รายงาน</th>
+                <th style="width: 14%;">เลขบัตรประชาชน</th>
+                <th style="width: 20%;">ชื่อ-นามสกุล</th>
+                <th style="width: 12%;">ตำแหน่งล่าสุด</th>
+                <th style="width: 11%;">เขต</th>
+                <th style="width: 11%;">สาเหตุที่ออก</th>
+                <th style="width: 14%;">สถานะงาน</th>
               </tr>
             </thead>
             <tbody>
@@ -354,12 +361,12 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
                 <tr>
                   <td><?= $i++ ?></td>
                   <td><?= date('d/m/', strtotime($row['RDate'])) . (date('Y', strtotime($row['RDate'])) + 543) ?></td>
-                  <td style="font-weight:700;"><?= htmlspecialchars(explode('/', $row['DocID'])[1] ?? $row['DocID']) ?></td>
-                  <td style="font-size: 0.9rem;"><?= htmlspecialchars($row['EmpID']) ?></td>
-                  <td class="text-left"><?= htmlspecialchars($row['EmpName']) ?></td>
-                  <td><?= htmlspecialchars($row['KName']) ?></td>
-                  <td class="text-left" style="font-size: 0.85rem;"><?= htmlspecialchars($row['QName']) ?></td>
-                  <td class="text-left" style="font-size: 0.85rem;"><?= htmlspecialchars($row['JName']) ?></td>
+                  <td style="font-size: 0.9rem;"><?= htmlspecialchars($row['EmpID'] ?? '') ?></td>
+                  <td class="text-left"><?= htmlspecialchars(($row['TitleName'] ? $row['TitleName'] . ' ' : '') . ($row['EmpName'] ?? '')) ?></td>
+                  <td><?= htmlspecialchars($row['PotName'] ?? '') ?></td>
+                  <td><?= htmlspecialchars($row['KName'] ?? '') ?></td>
+                  <td class="text-left" style="font-size: 0.85rem;"><?= htmlspecialchars($row['QName'] ?? '') ?></td>
+                  <td class="text-left" style="font-size: 0.85rem;"><?= htmlspecialchars($row['JName'] ?? '') ?></td>
                 </tr>
               <?php endforeach; endif; ?>
             </tbody>
