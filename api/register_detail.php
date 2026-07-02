@@ -14,18 +14,22 @@ if ($docNo <= 0) {
 $pdo  = getDB();
 $stmt = $pdo->prepare(
     "SELECT r.DocNo, r.DocID, r.RDate, r.SDate,
-            r.EmpID, e.EmpName, e.Phone, e.lineID, e.Address,
+            r.EmpID, e.Titles AS TitleNo, t.Title AS TitleName, e.EmpName, e.Phone, e.lineID, e.Address,
             r.KNo, k.KName,
             r.SexNo, s.SexName,
             r.QNo, q.QName,
+            r.EqNo, edu.EqName,
+            r.PotNo, pot.PotName,
             r.StID, st.StName
      FROM register r
      LEFT JOIN employee e ON e.EmpID  = r.EmpID
+     LEFT JOIN titles   t ON t.TitleNo = e.Titles
      LEFT JOIN kate     k ON k.KNo    = r.KNo
      LEFT JOIN sex      s ON s.SexNo  = r.SexNo
      LEFT JOIN quit     q ON q.QNo    = r.QNo
-     LEFT JOIN staft    st ON st.StID = r.StID
-     WHERE r.DocNo = :doc"
+     LEFT JOIN educational_qualification edu ON edu.EqNo = r.EqNo
+     LEFT JOIN emp_position pot ON pot.PotNo = r.PotNo
+     LEFT JOIN staff    st ON st.StID = r.StID     WHERE r.DocNo = :doc"
 );
 $stmt->execute([':doc' => $docNo]);
 $row = $stmt->fetch(PDO::FETCH_ASSOC);
