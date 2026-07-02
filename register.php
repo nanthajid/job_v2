@@ -731,9 +731,9 @@ try {
 
                   <hr class="my-4">
 
-                  <!-- View mode banner (shown when a record is loaded for viewing) -->
-                  <div id="viewModeBanner" class="alert d-none mb-4" role="alert" style="background: #FFF8E1; border: 1px solid #FFECB3; border-left: 4px solid var(--gov-gold); border-radius: 8px; color: #8D6E00;">
-                    <i class="fas fa-eye mr-2"></i> กำลังดูข้อมูลที่บันทึกไว้ — กดปุ่ม <strong>แก้ไขข้อมูล</strong> เพื่อเปิดโหมดแก้ไข
+                  <!-- Edit mode banner (shown when a record is loaded for editing) -->
+                  <div id="viewModeBanner" class="alert d-none mb-4" role="alert" style="background: #E8F0FE; border: 1px solid #C7DAF7; border-left: 4px solid var(--gov-royal); border-radius: 8px; color: #1A4E8A;">
+                    <i class="fas fa-pen-to-square mr-2"></i> กำลังแก้ไขข้อมูลที่บันทึกไว้ — แก้ไขได้ทุกช่อง แล้วกด <strong>บันทึกการแก้ไขข้อมูล</strong>
                   </div>
 
                   <div class="text-muted small mb-4">
@@ -741,7 +741,7 @@ try {
                   </div>
 
                   <div class="d-flex flex-column">
-                    <button type="button" id="btnEnterEditMode" class="btn mb-3 d-none" style="background-color: var(--gov-gold); color: var(--gov-navy); border: none; border-radius: 8px; padding: 0.75rem 2rem; font-weight: 600;">
+                    <button type="button" id="btnEnterEditMode" class="btn mb-3" disabled title="โหลดข้อมูลผู้ขึ้นทะเบียนก่อน จึงจะแก้ไขได้" style="background-color: var(--gov-gold); color: var(--gov-navy); border: none; border-radius: 8px; padding: 0.75rem 2rem; font-weight: 600;">
                       <i class="fas fa-pen-to-square mr-2"></i> แก้ไขข้อมูล
                     </button>
                     <button type="submit" id="btnSubmitRegister" class="btn btn-gov-primary mb-3">
@@ -1136,53 +1136,31 @@ $(function () {
   }
 
   // ===== Register Form Mode Control =====
-  // mode: 'new' (สร้างใหม่), 'view' (ดูข้อมูลที่โหลดมา), 'edit' (แก้ไขข้อมูลที่โหลดมา)
+  // mode: 'new' (สร้างใหม่ - ปุ่มแก้ไขถูกปิด), 'edit' (โหลดข้อมูลเดิมมาแก้ไขได้ทันที)
+  // ปุ่ม "แก้ไขข้อมูล" แสดงในการ์ดตลอด: โหมดใหม่ = disabled, โหลดข้อมูลแล้ว = enabled
   function setRegisterMode(mode) {
     var $form = $('#registerForm');
     $form.data('mode', mode);
 
-    if (mode === 'new') {
-      // ทุกช่องแก้ไขได้ ปุ่มบันทึก = ขึ้นทะเบียนใหม่
-      lockRegisterFields(false);
+    if (mode === 'edit') {
+      // โหลดข้อมูลเดิม -> แก้ไขได้ทุกช่องทันที (ยกเว้นเลขบัตรซึ่งเป็น PK)
+      $('#empID').prop('readonly', true);
+      $('#addEmpAppend').addClass('d-none');
+      $('#viewModeBanner').removeClass('d-none');
+      $('#btnEnterEditMode').prop('disabled', false)
+        .attr('title', 'กำลังอยู่ในโหมดแก้ไขข้อมูล');
+      $('#btnSubmitRegister')
+        .html('<i class="fas fa-save mr-2"></i> บันทึกการแก้ไขข้อมูล');
+    } else {
+      // 'new' = สร้างใหม่: แก้ไขได้ทุกช่อง ปุ่มแก้ไขถูกปิดไว้ (ยังไม่มีข้อมูลให้แก้)
       $('#empID').prop('readonly', false);
       $('#addEmpAppend').addClass('d-none'); // ให้ autocomplete จัดการเอง
       $('#viewModeBanner').addClass('d-none');
-      $('#btnEnterEditMode').addClass('d-none');
-      $('#btnSubmitRegister').removeClass('d-none')
+      $('#btnEnterEditMode').prop('disabled', true)
+        .attr('title', 'โหลดข้อมูลผู้ขึ้นทะเบียนก่อน จึงจะแก้ไขได้');
+      $('#btnSubmitRegister')
         .html('<i class="fas fa-save mr-2"></i> บันทึกข้อมูลการขึ้นทะเบียน');
-      $('#btnResetRegister').removeClass('d-none');
-    } else if (mode === 'view') {
-      // ล็อกทุกช่อง แสดงปุ่ม "แก้ไขข้อมูล" เท่านั้น
-      lockRegisterFields(true);
-      $('#addEmpAppend').addClass('d-none');
-      $('#viewModeBanner').removeClass('d-none');
-      $('#btnEnterEditMode').removeClass('d-none');
-      $('#btnSubmitRegister').addClass('d-none');
-      $('#btnResetRegister').addClass('d-none');
-    } else if (mode === 'edit') {
-      // ปลดล็อกให้แก้ไขได้ แต่คงเลขบัตร (PK) ไว้
-      lockRegisterFields(false);
-      $('#empID').prop('readonly', true);   // ห้ามแก้เลขบัตรตอนแก้ไข
-      $('#addEmpAppend').addClass('d-none');
-      $('#viewModeBanner').addClass('d-none');
-      $('#btnEnterEditMode').addClass('d-none');
-      $('#btnSubmitRegister').removeClass('d-none')
-        .html('<i class="fas fa-save mr-2"></i> บันทึกการแก้ไขข้อมูล');
-      $('#btnResetRegister').removeClass('d-none');
     }
-  }
-
-  // ล็อก/ปลดล็อกทุกช่องกรอกในฟอร์มหลัก (ยกเว้นปุ่มควบคุมโหมด)
-  function lockRegisterFields(locked) {
-    var $form = $('#registerForm');
-    $form.find('input, textarea, select')
-      .not('[type="hidden"]')
-      .prop('disabled', locked);
-    // ปรับสถานะ select2 ให้ตรงกัน
-    $form.find('.select2').prop('disabled', locked).trigger('change.select2');
-    // ปุ่มเพิ่ม/แก้ไขข้อมูลย่อยในฟอร์ม
-    $('#btnEditEmp, #btnAddEmp, #btnAddEdu, #btnAddPot').prop('disabled', locked);
-    $form.toggleClass('is-view-locked', locked);
   }
 
   // jQuery Validation Defaults
@@ -1575,9 +1553,6 @@ $(function () {
       if (res && res.success && res.data) {
         var data = res.data;
 
-        // ปลดล็อกชั่วคราวเพื่อเติมค่าลงฟอร์มได้ครบ
-        lockRegisterFields(false);
-
         $('#empID').val(data.EmpID);
         $('#empName').val(data.EmpName || '');
 
@@ -1614,13 +1589,13 @@ $(function () {
         // Store DocNo for update
         $('#registerForm').data('docNo', docNo);
 
-        // เข้าสู่โหมดดูข้อมูล (view) — ต้องกด "แก้ไขข้อมูล" ก่อนจึงจะแก้ได้
-        setRegisterMode('view');
+        // เข้าสู่โหมดแก้ไขทันที — แก้ไขได้ทุกช่อง
+        setRegisterMode('edit');
 
         $('#searchRegisterModal').modal('hide');
         $('#successAlert').addClass('d-none');
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        Toast.fire({ icon: 'info', title: 'โหลดข้อมูลเรียบร้อย' });
+        Toast.fire({ icon: 'info', title: 'โหลดข้อมูลเรียบร้อย — แก้ไขได้ทันที' });
       }
     })
     .fail(function(xhr) {
@@ -1664,11 +1639,13 @@ $(function () {
     });
   });
 
-  // Enter Edit Mode (จากโหมดดูข้อมูล -> แก้ไขได้)
+  // ปุ่มแก้ไขข้อมูล (แสดงตลอด) — ใช้งานได้เมื่อโหลดข้อมูลเดิมมาแล้ว
   $('#btnEnterEditMode').on('click', function() {
+    if (!$('#registerForm').data('docNo')) return; // ยังไม่มีข้อมูลให้แก้
     setRegisterMode('edit');
-    Toast.fire({ icon: 'info', title: 'เปิดโหมดแก้ไขข้อมูลแล้ว' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     $('#empName').focus();
+    Toast.fire({ icon: 'info', title: 'แก้ไขข้อมูลได้ทุกช่อง แล้วกดบันทึกการแก้ไข' });
   });
 
   // Reset -> กลับสู่โหมดสร้างใหม่

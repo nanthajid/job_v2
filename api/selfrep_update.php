@@ -10,16 +10,41 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$docNo = (int)($_POST['DocNo'] ?? 0);
-$rDate = trim($_POST['RDate'] ?? '');
-$kNo   = trim($_POST['KNo']   ?? '');
-$sexNo = trim($_POST['SexNo'] ?? '');
-$qNo   = trim($_POST['QNo']   ?? '');
-$jNo   = trim($_POST['JNo']   ?? '');
+$user = currentUser();
+
+$docNo   = isset($_POST['DocNo']) ? (int)$_POST['DocNo'] : 0;
+$empID   = trim($_POST['EmpID']   ?? '');
+$kNo     = trim($_POST['KNo']     ?? '');
+$qNo     = trim($_POST['QNo']     ?? '');
+$jNo     = trim($_POST['JNo']     ?? '');
+$sexNo   = trim($_POST['SexNo']   ?? '');
+$titles  = trim($_POST['Titles']  ?? '');
+$rDate   = trim($_POST['RDate']   ?? '');
+$phone   = trim($_POST['Phone']   ?? '');
+$address = trim($_POST['Address'] ?? '');
 
 $errors = [];
-if ($docNo <= 0) {
-    $errors[] = 'เลขที่เอกสารไม่ถูกต้อง';
+
+if (!$docNo) {
+    $errors[] = 'DocNo ไม่ถูกต้อง';
+}
+if (!preg_match('/^\d{13}$/', $empID)) {
+    $errors[] = 'เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก';
+}
+if (!ctype_digit($kNo) || (int)$kNo <= 0) {
+    $errors[] = 'กรุณาเลือกเขต';
+}
+if (!ctype_digit($qNo) || (int)$qNo <= 0) {
+    $errors[] = 'กรุณาเลือกสาเหตุที่ออกจากงาน';
+}
+if (!ctype_digit($jNo) || (int)$jNo <= 0) {
+    $errors[] = 'กรุณาเลือกสถานะการได้งาน';
+}
+if (!ctype_digit($sexNo) || (int)$sexNo <= 0) {
+    $errors[] = 'กรุณาเลือกเพศ';
+}
+if (!ctype_digit($titles) || (int)$titles <= 0) {
+    $errors[] = 'กรุณาเลือกคำนำหน้า';
 }
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $rDate)) {
     $errors[] = 'รูปแบบวันที่ไม่ถูกต้อง';
@@ -29,17 +54,8 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $rDate)) {
         $errors[] = 'วันที่ไม่ถูกต้อง';
     }
 }
-if (!ctype_digit($kNo) || (int)$kNo <= 0) {
-    $errors[] = 'กรุณาเลือกเขต';
-}
-if (!ctype_digit($sexNo) || (int)$sexNo <= 0) {
-    $errors[] = 'กรุณาเลือกเพศ';
-}
-if (!ctype_digit($qNo) || (int)$qNo <= 0) {
-    $errors[] = 'กรุณาเลือกสาเหตุที่ออกจากงาน';
-}
-if (!ctype_digit($jNo) || (int)$jNo <= 0) {
-    $errors[] = 'กรุณาเลือกสถานะการได้งาน';
+if ($phone !== '' && !preg_match('/^[0-9\-\s]{6,15}$/', $phone)) {
+    $errors[] = 'รูปแบบเบอร์โทรไม่ถูกต้อง';
 }
 
 if ($errors) {
@@ -50,12 +66,16 @@ if ($errors) {
 
 $pdo = getDB();
 
-foreach ([
-    ['t' => 'kate', 'k' => 'KNo',   'v' => (int)$kNo,   'msg' => 'ไม่พบเขตที่เลือก'],
-    ['t' => 'sex',  'k' => 'SexNo', 'v' => (int)$sexNo, 'msg' => 'ไม่พบเพศที่เลือก'],
-    ['t' => 'quit', 'k' => 'QNo',   'v' => (int)$qNo,   'msg' => 'ไม่พบสาเหตุที่เลือก'],
-    ['t' => 'job',  'k' => 'JNo',   'v' => (int)$jNo,   'msg' => 'ไม่พบสถานะการได้งานที่เลือก'],
-] as $fk) {
+// ตรวจ FK
+$fkChecks = [
+    ['t' => 'kate', 'k' => 'KNo', 'v' => (int)$kNo,   'msg' => 'ไม่พบเขตที่เลือก'],
+    ['t' => 'quit', 'k' => 'QNo', 'v' => (int)$qNo,   'msg' => 'ไม่พบสาเหตุที่เลือก'],
+    ['t' => 'job',  'k' => 'JNo', 'v' => (int)$jNo,   'msg' => 'ไม่พบสถานะการได้งานที่เลือก'],
+    ['t' => 'sex',  'k' => 'SexNo','v' => (int)$sexNo,'msg' => 'ไม่พบเพศที่เลือก'],
+    ['t' => 'titles','k' => 'TitleNo','v' => (int)$titles,'msg' => 'ไม่พบคำนำหน้าที่เลือก'],
+];
+
+foreach ($fkChecks as $fk) {
     $st = $pdo->prepare("SELECT 1 FROM {$fk['t']} WHERE {$fk['k']} = :v");
     $st->execute([':v' => $fk['v']]);
     if (!$st->fetchColumn()) {
@@ -65,42 +85,59 @@ foreach ([
     }
 }
 
-$exists = $pdo->prepare("SELECT 1 FROM selft_rep WHERE DocNo = :doc");
-$exists->execute([':doc' => $docNo]);
-if (!$exists->fetchColumn()) {
-    http_response_code(404);
-    echo json_encode(['success' => false, 'message' => 'ไม่พบเอกสารที่ระบุ'], JSON_UNESCAPED_UNICODE);
-    exit;
-}
-
 try {
+    $pdo->beginTransaction();
+
+    // Check if DocNo exists
+    $chk = $pdo->prepare("SELECT 1 FROM selft_rep WHERE DocNo = :docno");
+    $chk->execute([':docno' => $docNo]);
+    if (!$chk->fetchColumn()) {
+        throw new Exception('ไม่พบข้อมูลการรายงานตัวนี้');
+    }
+
+    // Update selft_rep
     $upd = $pdo->prepare(
-        "UPDATE selft_rep
-         SET RDate = :rdate, KNo = :kno, SexNo = :sex, QNo = :qno, JNo = :jno
-         WHERE DocNo = :doc"
+        "UPDATE selft_rep SET RDate = :rdate, QNo = :qno, JNo = :jno, KNo = :kno, SexNo = :sex
+         WHERE DocNo = :docno"
     );
     $upd->execute([
+        ':docno' => $docNo,
         ':rdate' => $rDate,
-        ':kno'   => (int)$kNo,
-        ':sex'   => (int)$sexNo,
         ':qno'   => (int)$qNo,
         ':jno'   => (int)$jNo,
-        ':doc'   => $docNo,
+        ':kno'   => (int)$kNo,
+        ':sex'   => (int)$sexNo,
     ]);
+
+    // Update employee
+    $updEmp = $pdo->prepare(
+        "UPDATE employee SET Titles = :titles, KNo = :kno, SexNo = :sex, Phone = :phone, Address = :addr
+         WHERE EmpID = :id"
+    );
+    $updEmp->execute([
+        ':titles'=> (int)$titles,
+        ':kno'   => (int)$kNo,
+        ':sex'   => (int)$sexNo,
+        ':phone' => $phone !== '' ? $phone : null,
+        ':addr'  => $address !== '' ? $address : null,
+        ':id'    => $empID,
+    ]);
+
+    $pdo->commit();
 
     echo json_encode([
         'success' => true,
-        'message' => 'บันทึกการแก้ไขเรียบร้อย',
-        'data'    => [
-            'DocNo' => $docNo,
-            'RDate' => $rDate,
-            'KNo'   => (int)$kNo,
-            'SexNo' => (int)$sexNo,
-            'QNo'   => (int)$qNo,
-            'JNo'   => (int)$jNo,
-        ],
+        'message' => 'แก้ไขการรายงานตัวเรียบร้อย',
+        'data'    => ['DocNo' => $docNo],
     ], JSON_UNESCAPED_UNICODE);
-} catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'บันทึกไม่สำเร็จ: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+
+} catch (Exception $e) {
+    if (isset($pdo) && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    http_response_code(422);
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage(),
+    ], JSON_UNESCAPED_UNICODE);
 }
