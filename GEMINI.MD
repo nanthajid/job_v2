@@ -1,4 +1,4 @@
-table structure
+# table structure
 
 TABLE `employee` (
   `EmpID` varchar(15) NOT NULL,
@@ -108,4 +108,15 @@ TABLE `post_type` (
   `PostType` char(255) NOT NULL,
   `PostTypeName` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`PostType`)
+)
+
+TABLE `educational_qualification` (
+  `EqNo` int(11) NOT NULL AUTO_INCREMENT,
+  `EqName` varchar(150) DEFAULT NULL,
+  PRIMARY KEY (`EqNo`)
+)
+TABLE `emp_position` (
+  `PotNo` int(11) NOT NULL AUTO_INCREMENT,
+  `PotName` varchar(150) DEFAULT NULL,
+  PRIMARY KEY (`PotNo`)
 )
