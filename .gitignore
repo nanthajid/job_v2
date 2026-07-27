@@ -4,6 +4,13 @@ config/database.php
 # Data files
 data/
 
+# Composer dependencies (ติดตั้งใหม่ด้วย composer install)
+vendor/
+
+# ไฟล์ที่ผู้ใช้อัปโหลด — เก็บเฉพาะรูป fallback ที่โค้ดเรียกใช้
+uploads/staff/*
+!uploads/staff/noimage.png
+
 # OS files
 Thumbs.db
 Desktop.ini
