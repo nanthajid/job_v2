@@ -14,12 +14,12 @@ if ($length <= 0 || $length > 200) {
 $search = trim($_GET['search']['value'] ?? '');
 
 $columnsMap = [
-    0 => 'e.EmpID',
-    1 => 'e.EmpName',
-    2 => 's.SexName',
-    3 => 'k.KName',
+    1 => 'e.EmpID',
+    2 => 'e.EmpName',
+    3 => 's.SexName',
+    4 => 'k.KName',
 ];
-$orderColIdx = (int)($_GET['order'][0]['column'] ?? 0);
+$orderColIdx = (int)($_GET['order'][0]['column'] ?? 1);
 $orderDir    = strtolower($_GET['order'][0]['dir'] ?? 'asc') === 'desc' ? 'DESC' : 'ASC';
 $orderCol    = $columnsMap[$orderColIdx] ?? 'e.EmpID';
 
@@ -27,8 +27,9 @@ $pdo = getDB();
 
 // Filter: เฉพาะ employee ที่มี selft_rep record
 $baseSql = "FROM employee e
-            LEFT JOIN sex  s ON s.SexNo = e.SexNo
-            LEFT JOIN kate k ON k.KNo   = e.KNo
+            LEFT JOIN titles t ON t.TitleNo = e.Titles
+            LEFT JOIN sex    s ON s.SexNo = e.SexNo
+            LEFT JOIN kate   k ON k.KNo   = e.KNo
             WHERE EXISTS (
                 SELECT 1 FROM selft_rep sr
                 WHERE sr.EmpID = e.EmpID
@@ -50,7 +51,7 @@ $cntStmt = $pdo->prepare("SELECT COUNT(*) " . $baseSql . $where);
 $cntStmt->execute($params);
 $filtered = (int)$cntStmt->fetchColumn();
 
-$sql = "SELECT e.EmpID, e.EmpName, s.SexName, k.KName "
+$sql = "SELECT e.EmpID, t.Title AS TitleName, e.EmpName, s.SexName, k.KName "
      . $baseSql . $where
      . " ORDER BY $orderCol $orderDir"
      . " LIMIT :limit OFFSET :offset";
@@ -65,9 +66,10 @@ $stmt->execute();
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $data = array_map(function ($r) {
+    $fullName = ($r['TitleName'] ? $r['TitleName'] . ' ' : '') . ($r['EmpName'] ?? '');
     return [
         'EmpID'   => $r['EmpID'],
-        'EmpName' => $r['EmpName'] ?? '',
+        'EmpName' => $fullName,
         'SexName' => $r['SexName'] ?? '',
         'KName'   => $r['KName']   ?? '',
     ];

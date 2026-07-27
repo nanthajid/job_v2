@@ -7,9 +7,11 @@ $user     = currentUser();
 $pdo      = getDB();
 $kateRows = $pdo->query("SELECT KNo, KName FROM kate ORDER BY KNo")->fetchAll();
 $sexRows  = $pdo->query("SELECT SexNo, SexName FROM sex ORDER BY SexNo")->fetchAll();
-$titlesRows = $pdo->query("SELECT DocNo, Title FROM titles ORDER BY DocNo")->fetchAll();
+$titlesRows = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")->fetchAll();
 $quitRows  = $pdo->query("SELECT QNo, QName FROM quit ORDER BY QNo")->fetchAll();
-$staftRows = $pdo->query("SELECT StID, StName FROM staft ORDER BY StName")->fetchAll();
+$staffRows = $pdo->query("SELECT StID, StName FROM staff ORDER BY StName")->fetchAll();
+$eduRows  = $pdo->query("SELECT EqNo, EqName FROM educational_qualification ORDER BY EqNo")->fetchAll();
+$potRows  = $pdo->query("SELECT PotNo, PotName FROM emp_position ORDER BY PotNo")->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -28,6 +30,8 @@ $staftRows = $pdo->query("SELECT StID, StName FROM staft ORDER BY StName")->fetc
   <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap4.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/@ttskch/select2-bootstrap4-theme@1.5.2/dist/select2-bootstrap4.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/custom.css">
 
   <style>
@@ -107,8 +111,7 @@ $staftRows = $pdo->query("SELECT StID, StName FROM staft ORDER BY StName")->fetc
     .nav-tabs-gov .nav-link {
       border: none;
       color: var(--gov-text-muted);
-      padding: 1rem 1.5rem;
-      font-weight: 500;
+      padding: 1rem 1.5rem;      font-weight: 500;
       position: relative;
     }
     .nav-tabs-gov .nav-link.active {
@@ -172,7 +175,7 @@ $staftRows = $pdo->query("SELECT StID, StName FROM staft ORDER BY StName")->fetc
       border-radius: 6px;
       transition: all 0.2s;
     }
-    
+
     .form-label {
       font-weight: 500;
       color: var(--gov-navy);
@@ -181,6 +184,53 @@ $staftRows = $pdo->query("SELECT StID, StName FROM staft ORDER BY StName")->fetc
     .form-control {
       border-radius: 8px;
       padding: 0.6rem 1rem;
+    }
+
+    /* Select2 Gov Customization */
+    .select2-container--bootstrap4 .select2-selection {
+      border-radius: 8px;
+      border: 1px solid var(--gov-border);
+      min-height: calc(1.5em + 1.1rem + 2px);
+      padding: 0.375rem 0.75rem;
+      display: flex;
+      align-items: center;
+    }
+    .select2-container--bootstrap4 .select2-selection--single .select2-selection__rendered {
+      padding-left: 0;
+      line-height: 1.5;
+      color: var(--gov-text-dark);
+    }
+    .select2-container--bootstrap4 .select2-selection--single .select2-selection__arrow {
+      height: 100%;
+      top: 0;
+    }
+    .select2-container--bootstrap4.select2-container--focus .select2-selection {
+      border-color: var(--gov-royal);
+      box-shadow: 0 0 0 3px rgba(0, 94, 184, 0.15);
+    }
+    .input-group > .select2-container--bootstrap4 {
+      flex: 1 1 auto;
+      width: auto !important;
+    }
+    .select2-dropdown {
+      border-radius: 8px;
+      border: 1px solid var(--gov-border);
+      box-shadow: var(--gov-shadow);
+      z-index: 1060;
+    }
+    .select2-search--dropdown .select2-search__field {
+      border-radius: 6px;
+      border: 1px solid var(--gov-border);
+    }
+    .select2-results__option {
+      padding: 0.75rem 1rem;
+    }
+    .select2-container--bootstrap4 .select2-results__option--highlighted[aria-selected] {
+      background-color: var(--gov-navy);
+    }
+
+    .border-bottom-dotted {
+      border-bottom: 1.5px dotted #666 !important;
     }
 
     @media (max-width: 768px) {
@@ -199,6 +249,11 @@ $staftRows = $pdo->query("SELECT StID, StName FROM staft ORDER BY StName")->fetc
           <i class="fas fa-bars text-navy"></i>
         </a>
       </li>
+      <li class="nav-item d-none d-lg-block">
+        <span class="nav-link text-navy font-weight-bold">
+          <i class="fas fa-desktop mr-2"></i>ระบบจัดการคนว่างงาน สำนักงานจัดหางานกรุงเทพมหานครพื้นที่ 2
+        </span>
+      </li>
     </ul>
 
     <ul class="navbar-nav ml-auto">
@@ -212,7 +267,7 @@ $staftRows = $pdo->query("SELECT StID, StName FROM staft ORDER BY StName")->fetc
           <div class="d-flex align-items-center">
             <div class="text-right mr-2 d-none d-sm-block">
               <div class="font-weight-bold" style="line-height:1;"><?= htmlspecialchars($user['StName'] ?: $user['UserName']) ?></div>
-              <small class="text-muted"><?= htmlspecialchars($user['StPost'] ?: 'เจ้าหน้าที่') ?></small>
+              <small class="text-muted"><?= htmlspecialchars($user['StPostName'] ?: ($user['StPost'] ?: 'เจ้าหน้าที่')) ?></small>
             </div>
             <i class="fas fa-user-circle fa-2x text-navy"></i>
           </div>
@@ -276,11 +331,12 @@ $staftRows = $pdo->query("SELECT StID, StName FROM staft ORDER BY StName")->fetc
                   <table id="empTable" class="table table-hover w-100">
                     <thead>
                       <tr>
+                        <th style="width: 50px;">ลำดับ</th>
                         <th>เลขบัตรประชาชน</th>
                         <th>ชื่อ-นามสกุล</th>
                         <th class="text-center">เพศ</th>
                         <th>เขตพื้นที่</th>
-                        <th class="text-center no-print">จัดการ</th>
+                        <th class="text-center" style="width: 80px;">จัดการ</th>
                       </tr>
                     </thead>
                     <tbody></tbody>
@@ -294,13 +350,13 @@ $staftRows = $pdo->query("SELECT StID, StName FROM staft ORDER BY StName")->fetc
                   <table id="regTable" class="table table-hover w-100">
                     <thead>
                       <tr>
-                        <th>เลขที่เอกสาร</th>
+                        <th style="width: 50px;">ลำดับ</th>
                         <th>เลขบัตรประชาชน</th>
                         <th>ชื่อ-นามสกุล</th>
                         <th class="text-center">วันลงทะเบียน</th>
                         <th>เขตพื้นที่</th>
                         <th>สาเหตุที่ออก</th>
-                        <th class="text-center no-print">จัดการ</th>
+                        <th class="text-center" style="width: 80px;">จัดการ</th>
                       </tr>
                     </thead>
                     <tbody></tbody>
@@ -330,29 +386,33 @@ $staftRows = $pdo->query("SELECT StID, StName FROM staft ORDER BY StName")->fetc
           <div id="viewEmpLoading" class="text-center py-5"><i class="fas fa-circle-notch fa-spin fa-2x text-royal"></i></div>
           <div id="viewEmpContent" class="d-none">
              <div class="row">
-                <div class="col-md-6 mb-3">
+                <div class="col-md-6 mb-3 border-bottom-dotted pb-2">
                    <label class="small text-muted mb-0">เลขบัตรประชาชน</label>
-                   <div id="vw-empid" class="h5 font-weight-bold text-navy text-monospace"></div>
+                   <div id="vw-empid" class="h5 font-weight-bold text-navy text-monospace mb-0"></div>
                 </div>
-                <div class="col-md-6 mb-3">
+                <div class="col-md-6 mb-3 border-bottom-dotted pb-2">
                    <label class="small text-muted mb-0">ชื่อ-นามสกุล</label>
-                   <div id="vw-empname" class="h5 font-weight-bold"></div>
+                   <div id="vw-empname" class="h5 font-weight-bold mb-0"></div>
                 </div>
-                <div class="col-md-4 mb-3">
+                <div class="col-md-4 mb-3 border-bottom-dotted pb-2">
                    <label class="small text-muted mb-0">เพศ</label>
-                   <div id="vw-sex"></div>
+                   <div id="vw-sex" class="mb-0"></div>
                 </div>
-                <div class="col-md-4 mb-3">
+                <div class="col-md-4 mb-3 border-bottom-dotted pb-2">
                    <label class="small text-muted mb-0">เขตพื้นที่</label>
-                   <div id="vw-kate"></div>
+                   <div id="vw-kate" class="mb-0"></div>
                 </div>
-                <div class="col-md-4 mb-3">
+                <div class="col-md-4 mb-3 border-bottom-dotted pb-2">
                    <label class="small text-muted mb-0">เบอร์โทรศัพท์</label>
-                   <div id="vw-phone"></div>
+                   <div id="vw-phone" class="mb-0"></div>
                 </div>
-                <div class="col-md-12">
+                <div class="col-md-12 mb-3 border-bottom-dotted pb-2">
                    <label class="small text-muted mb-0">ที่อยู่ปัจจุบัน</label>
-                   <div id="vw-address" class="border rounded p-3 bg-light mt-1"></div>
+                   <div id="vw-address" class="mt-1"></div>
+                </div>
+                <div class="col-md-12 mb-3 border-bottom-dotted pb-2">
+                   <label class="small text-muted mb-0">วุฒิการศึกษาล่าสุด</label>
+                   <div id="vw-edu" class="mb-0"></div>
                 </div>
              </div>
 
@@ -402,98 +462,8 @@ $staftRows = $pdo->query("SELECT StID, StName FROM staft ORDER BY StName")->fetc
              </div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Edit Employee Modal -->
-  <div class="modal fade" id="editEmpModal" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-      <div class="modal-content gov-card border-0">
-        <div class="modal-header border-bottom-0 pt-4 px-4">
-          <h5 class="gov-card-title text-navy"><i class="fas fa-user-pen mr-2"></i> แก้ไขข้อมูลผู้ลงทะเบียน</h5>
-          <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
-        </div>
-        <form id="editEmpForm">
-          <div class="modal-body px-4 pb-4">
-             <div id="editEmpAlert" class="alert alert-danger d-none"></div>
-             <div class="row">
-                <div class="col-md-6 mb-3">
-                   <label class="form-label">เลขบัตรประชาชน</label>
-                   <input type="text" id="editEmpID" name="EmpID" class="form-control bg-light" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                   <label class="form-label">คำนำหน้า</label>
-                   <div class="d-flex pt-2">
-                      <?php foreach ($titlesRows as $t): ?>
-                        <div class="custom-control custom-radio custom-gov-radio mr-3">
-                          <input type="radio" id="edit_title_<?= $t['DocNo'] ?>" name="Titles" class="custom-control-input" value="<?= $t['DocNo'] ?>" required>
-                          <label class="custom-control-label" for="edit_title_<?= $t['DocNo'] ?>"><?= $t['Title'] ?></label>
-                        </div>
-                      <?php endforeach; ?>
-                   </div>
-                </div>
-                <div class="col-md-12 mb-3">
-                   <label class="form-label">ชื่อ-นามสกุล</label>
-                   <input type="text" id="editEmpName" name="EmpName" class="form-control" required>
-                </div>
-                <div class="col-md-6 mb-3">
-                   <label class="form-label">เขตพื้นที่</label>
-                   <select id="editKNo" name="KNo" class="form-control" style="height: auto; font-size: 1rem; padding: 0.75rem 1rem;" required>
-                     <?php foreach ($kateRows as $r): ?>
-                       <option value="<?= $r['KNo'] ?>"><?= $r['KName'] ?></option>
-                     <?php endforeach; ?>
-                   </select>
-                </div>
-                <div class="col-md-6 mb-3">
-                   <label class="form-label">เพศ</label>
-                   <div class="d-flex pt-2">
-                     <?php foreach ($sexRows as $s): ?>
-                       <div class="custom-control custom-radio custom-gov-radio mr-4">
-                         <input type="radio" id="edit_sex_<?= $s['SexNo'] ?>" name="SexNo" class="custom-control-input" value="<?= $s['SexNo'] ?>" required>
-                         <label class="custom-control-label" for="edit_sex_<?= $s['SexNo'] ?>"><?= $s['SexName'] ?></label>
-                       </div>
-                     <?php endforeach; ?>
-                   </div>
-                </div>
-                <div class="col-md-6 mb-3">
-                   <label class="form-label">เบอร์โทรศัพท์</label>
-                   <input type="text" id="editPhone" name="Phone" class="form-control">
-                </div>
-                <div class="col-md-6 mb-3">
-                   <label class="form-label">Line ID</label>
-                   <input type="text" id="editLineID" name="lineID" class="form-control">
-                </div>
-                <div class="col-md-12">
-                   <label class="form-label">ที่อยู่</label>
-                   <textarea id="editAddress" name="Address" class="form-control" rows="3"></textarea>
-                </div>
-             </div>
-          </div>
-          <div class="modal-footer border-top-0 px-4 pb-4">
-            <button type="button" class="btn btn-gov-outline" data-dismiss="modal">ยกเลิก</button>
-            <button type="submit" class="btn btn-primary px-4" style="background-color: var(--gov-royal); border-color: var(--gov-royal); border-radius: 8px; padding: 0.75rem 2rem; font-weight: 600;">บันทึกการแก้ไข</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- Delete Confirmation Modal (Employee) -->
-  <div class="modal fade" id="deleteEmpModal" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-      <div class="modal-content gov-card border-0">
-        <div class="modal-header border-bottom-0 pt-4 px-4 bg-danger text-white">
-          <h5 class="gov-card-title text-white"><i class="fas fa-trash-can mr-2"></i> ยืนยันการลบข้อมูล</h5>
-        </div>
-        <div class="modal-body p-4 text-center">
-           <div class="mb-3"><i class="fas fa-circle-exclamation fa-4x text-danger opacity-5"></i></div>
-           <p>คุณต้องการลบข้อมูลของ <strong id="del-empname"></strong> ใช่หรือไม่?</p>
-           <p class="small text-danger">ข้อมูลการลงทะเบียนและการรายงานตัวทั้งหมดของบุคคลนี้จะถูกลบถาวร</p>
-        </div>
-        <div class="modal-footer border-top-0 px-4 pb-4 justify-content-center">
-          <button type="button" class="btn btn-gov-outline" data-dismiss="modal">ยกเลิก</button>
-          <button type="button" class="btn btn-danger px-4" id="deleteEmpConfirm">ยืนยันลบข้อมูล</button>
+        <div class="modal-footer border-top-0 px-4 pb-4">
+          <button type="button" class="btn btn-secondary px-4" data-dismiss="modal">ปิดหน้าต่าง</button>
         </div>
       </div>
     </div>
@@ -503,124 +473,111 @@ $staftRows = $pdo->query("SELECT StID, StName FROM staft ORDER BY StName")->fetc
   <div class="modal fade" id="viewRegModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-lg" role="document">
       <div class="modal-content gov-card border-0">
-        <div class="modal-header border-bottom-0 pt-4 px-4">
-          <h5 class="gov-card-title text-navy"><i class="fas fa-file-invoice mr-2"></i> รายละเอียดการลงทะเบียน</h5>
-          <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+        <div class="modal-header bg-navy text-white py-3 px-4" style="border-bottom: 3px solid var(--gov-gold) !important;">
+          <h5 class="modal-title text-white"><i class="fas fa-file-invoice mr-2"></i> รายละเอียดการลงทะเบียน</h5>
+          <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
         </div>
         <div class="modal-body px-4 pb-4">
           <div id="viewRegLoading" class="text-center py-5"><i class="fas fa-circle-notch fa-spin fa-2x text-royal"></i></div>
           <div id="viewRegContent" class="d-none">
              <div class="row">
-                <div class="col-md-6 mb-3">
+                <div class="col-md-6 mb-3 border-bottom-dotted pb-2">
                    <label class="small text-muted mb-0">เลขที่เอกสาร</label>
-                   <div id="vr-docid" class="h5 font-weight-bold text-navy text-monospace"></div>
+                   <div id="vr-docid" class="h5 font-weight-bold text-navy text-monospace mb-0"></div>
                 </div>
-                <div class="col-md-6 mb-3">
+                <div class="col-md-6 mb-3 border-bottom-dotted pb-2">
                    <label class="small text-muted mb-0">วันที่มาขึ้นทะเบียน</label>
-                   <div id="vr-rdate" class="h5 font-weight-bold"></div>
+                   <div id="vr-rdate" class="h5 font-weight-bold mb-0"></div>
                 </div>
-                <div class="col-md-6 mb-3">
+                <div class="col-md-6 mb-3 border-bottom-dotted pb-2">
                    <label class="small text-muted mb-0">ผู้ลงทะเบียน</label>
-                   <div id="vr-empname" class="h6"></div>
+                   <div id="vr-empname" class="h6 mb-0"></div>
                 </div>
-                <div class="col-md-6 mb-3">
+                <div class="col-md-6 mb-3 border-bottom-dotted pb-2">
                    <label class="small text-muted mb-0">สาเหตุที่ออกจากงาน</label>
-                   <div id="vr-quit" class="h6 text-danger"></div>
+                   <div id="vr-quit" class="h6 text-danger mb-0"></div>
                 </div>
-                <div class="col-md-12 mb-3">
+                <div class="col-md-6 mb-3 border-bottom-dotted pb-2">
+                   <label class="small text-muted mb-0">วุฒิการศึกษาล่าสุด</label>
+                   <div id="vr-edu" class="h6 mb-0"></div>
+                </div>
+                <div class="col-md-6 mb-3 border-bottom-dotted pb-2">
+                   <label class="small text-muted mb-0">ตำแหน่งล่าสุด</label>
+                   <div id="vr-pot" class="h6 mb-0"></div>
+                </div>
+                <div class="col-md-12 mb-3 border-bottom-dotted pb-2">
                    <label class="small text-muted mb-0">เจ้าหน้าที่ผู้บันทึก</label>
-                   <div id="vr-staff" class="small text-muted"></div>
+                   <div id="vr-staff" class="small text-muted mb-0"></div>
                 </div>
              </div>
           </div>
+        </div>
+        <div class="modal-footer border-top-0 px-4 pb-4">
+          <button type="button" class="btn btn-secondary px-4" data-dismiss="modal">ปิดหน้าต่าง</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Edit Registration Modal -->
-  <div class="modal fade" id="editRegModal" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
+  <!-- Educational Qualification (Add) Modal for Management -->
+  <div class="modal fade" id="eduModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
       <div class="modal-content gov-card border-0">
-        <div class="modal-header border-bottom-0 pt-4 px-4">
-          <h5 class="gov-card-title text-navy"><i class="fas fa-file-pen mr-2"></i> แก้ไขข้อมูลการลงทะเบียน</h5>
-          <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+        <div class="modal-header border-bottom-0 pt-4 px-4 bg-navy text-white">
+          <h5 class="gov-card-title text-white">
+            <i class="fas fa-graduation-cap mr-2"></i> เพิ่มวุฒิการศึกษาใหม่
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
         </div>
-        <form id="editRegForm">
-          <input type="hidden" id="editRegDocNo" name="DocNo">
+        <form id="eduModalForm" autocomplete="off">
           <div class="modal-body px-4 pb-4">
-             <div id="editRegAlert" class="alert alert-danger d-none"></div>
-             <div class="row">
-                <div class="col-md-6 mb-3">
-                   <label class="form-label">เลขที่เอกสาร</label>
-                   <input type="text" id="editRegDocID" class="form-control bg-light" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                   <label class="form-label">วันที่มาขึ้นทะเบียน <span class="text-danger">*</span></label>
-                   <input type="text" id="editRegRDate" name="RDate" class="form-control" required readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                   <label class="form-label">เขตพื้นที่ <span class="text-danger">*</span></label>
-                   <select id="editRegKNo" name="KNo" class="form-control" style="height: auto; font-size: 1rem; padding: 0.75rem 1rem;" required>
-                     <?php foreach ($kateRows as $r): ?>
-                       <option value="<?= $r['KNo'] ?>"><?= $r['KName'] ?></option>
-                     <?php endforeach; ?>
-                   </select>
-                </div>
-                <div class="col-md-6 mb-3">
-                   <label class="form-label">เพศ <span class="text-danger">*</span></label>
-                   <div class="d-flex pt-2">
-                     <?php foreach ($sexRows as $s): ?>
-                       <div class="custom-control custom-radio custom-gov-radio mr-4">
-                         <input type="radio" id="edit_reg_sex_<?= $s['SexNo'] ?>" name="SexNo" class="custom-control-input" value="<?= $s['SexNo'] ?>" required>
-                         <label class="custom-control-label" for="edit_reg_sex_<?= $s['SexNo'] ?>"><?= $s['SexName'] ?></label>
-                       </div>
-                     <?php endforeach; ?>
-                   </div>
-                </div>
-                <div class="col-md-12 mb-3">
-                   <label class="form-label">สาเหตุที่ออกจากงาน <span class="text-danger">*</span></label>
-                   <div class="d-flex flex-wrap pt-2">
-                     <?php foreach ($quitRows as $r): ?>
-                       <div class="custom-control custom-radio custom-gov-radio mr-4 mb-2">
-                         <input type="radio" id="edit_reg_quit_<?= $r['QNo'] ?>" name="QNo" class="custom-control-input" value="<?= $r['QNo'] ?>" required>
-                         <label class="custom-control-label" for="edit_reg_quit_<?= $r['QNo'] ?>"><?= $r['QName'] ?></label>
-                       </div>
-                     <?php endforeach; ?>
-                   </div>
-                </div>
-             </div>
+            <div class="form-group">
+              <label class="form-label" for="modalEqName">ชื่อวุฒิการศึกษา <span class="text-danger">*</span></label>
+              <input type="text" id="modalEqName" name="EqName" class="form-control" placeholder="เช่น ปริญญาตรี, ปวส. เทคโนโลยีสารสนเทศ" required>
+            </div>
           </div>
           <div class="modal-footer border-top-0 px-4 pb-4">
-            <button type="button" class="btn btn-gov-outline" data-dismiss="modal">ยกเลิก</button>
-            <button type="submit" class="btn btn-primary px-4" style="background-color: var(--gov-royal); border-color: var(--gov-royal); border-radius: 8px; padding: 0.75rem 2rem; font-weight: 600;">บันทึกการแก้ไข</button>
+            <button type="button" class="btn btn-secondary px-4" data-dismiss="modal">ยกเลิก</button>
+            <button type="submit" class="btn btn-primary px-4" style="background-color: var(--gov-royal); border-color: var(--gov-royal); border-radius: 8px; padding: 0.75rem 2rem; font-weight: 600;" id="btnSaveModalEdu">บันทึกวุฒิการศึกษา</button>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- Delete Registration Confirmation -->
-  <div class="modal fade" id="deleteRegModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <!-- Position (Add) Modal for Management -->
+  <div class="modal fade" id="potModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">
       <div class="modal-content gov-card border-0">
-        <div class="modal-header border-bottom-0 pt-4 px-4 bg-danger text-white">
-          <h5 class="gov-card-title text-white"><i class="fas fa-trash-can mr-2"></i> ยืนยันการลบเอกสาร</h5>
+        <div class="modal-header border-bottom-0 pt-4 px-4 bg-navy text-white">
+          <h5 class="gov-card-title text-white">
+            <i class="fas fa-briefcase mr-2"></i> เพิ่มตำแหน่งใหม่
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
         </div>
-        <div class="modal-body p-4 text-center">
-           <p>คุณต้องการลบเอกสารเลขที่ <strong id="del-reg-docid"></strong> ใช่หรือไม่?</p>
-        </div>
-        <div class="modal-footer border-top-0 px-4 pb-4 justify-content-center">
-          <button type="button" class="btn btn-gov-outline" data-dismiss="modal">ยกเลิก</button>
-          <button type="button" class="btn btn-danger px-4" id="deleteRegConfirm">ยืนยันลบเอกสาร</button>
-        </div>
+        <form id="potModalForm" autocomplete="off">
+          <div class="modal-body px-4 pb-4">
+            <div class="form-group">
+              <label class="form-label" for="modalPotName">ชื่อตำแหน่ง <span class="text-danger">*</span></label>
+              <input type="text" id="modalPotName" name="PotName" class="form-control" placeholder="เช่น พนักงานขาย, บัญชี, วิศวกรซอฟต์แวร์" required>
+            </div>
+          </div>
+          <div class="modal-footer border-top-0 px-4 pb-4">
+            <button type="button" class="btn btn-secondary px-4" data-dismiss="modal">ยกเลิก</button>
+            <button type="submit" class="btn btn-primary px-4" style="background-color: var(--gov-royal); border-color: var(--gov-royal); border-radius: 8px; padding: 0.75rem 2rem; font-weight: 600;" id="btnSaveModalPot">บันทึกตำแหน่ง</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
 
   <footer class="main-footer border-top-0 bg-transparent text-center py-4">
     <div class="text-muted small">
-      © <?php echo (date('Y') + 543); ?> สำนักงานจัดหางานกรุงเทพมหานครพื้นที่ 2 • Government Digital Service Platform
+      © <?php echo (date('Y') + 543); ?> สำนักงานจัดหางานกรุงเทพมหานครพื้นที่ 2 • Develop By Nanthajd sawasri
     </div>
   </footer>
 
@@ -634,9 +591,16 @@ $staftRows = $pdo->query("SELECT StID, StName FROM staft ORDER BY StName")->fetc
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <script>
 $(function () {
+  // Initialize Select2
+  $('.select2').select2({
+    theme: 'bootstrap4',
+    width: '100%'
+  });
+
   var thaiLang = {
     sProcessing: "กำลังประมวลผล...",
     sLengthMenu: "แสดง _MENU_ รายการ",
@@ -671,19 +635,25 @@ $(function () {
     ajax: { url: 'api/employee_list.php', type: 'GET' },
     language: thaiLang,
     columns: [
+      {
+        data: null,
+        className: 'text-center',
+        orderable: false,
+        render: function(data, type, row, meta) {
+          return meta.row + meta.settings._iDisplayStart + 1;
+        }
+      },
       { data: 'EmpID', render: function(d) { return '<span class="text-monospace font-weight-bold text-navy">' + d + '</span>'; } },
       { data: 'EmpName' },
       { data: 'SexName', className: 'text-center' },
       { data: 'KName' },
       {
         data: null,
+        className: 'text-center',
         orderable: false,
-        className: 'text-center no-print',
-        render: function(row) {
-          var id = encodeURIComponent(row.EmpID);
-          return '<button class="btn btn-action btn-outline-info mr-1" data-action="view" data-id="'+id+'"><i class="fas fa-eye"></i></button>' +
-                 '<button class="btn btn-action btn-outline-primary mr-1" data-action="edit" data-id="'+id+'"><i class="fas fa-pen"></i></button>' +
-                 '<button class="btn btn-action btn-outline-danger" data-action="delete" data-id="'+id+'"><i class="fas fa-trash"></i></button>';
+        width: '80px',
+        render: function(data, type, row) {
+          return '<button class="btn btn-sm btn-info" data-action="view" data-id="' + encodeURIComponent(row.EmpID) + '" title="ดูรายละเอียด"><i class="fas fa-eye"></i></button>';
         }
       }
     ]
@@ -697,7 +667,14 @@ $(function () {
     language: thaiLang,
     order: [[3, 'desc']],
     columns: [
-      { data: 'DocID', className: 'text-monospace font-weight-bold text-navy' },
+      {
+        data: null,
+        className: 'text-center',
+        orderable: false,
+        render: function(data, type, row, meta) {
+          return meta.row + meta.settings._iDisplayStart + 1;
+        }
+      },
       { data: 'EmpID', className: 'text-monospace' },
       { data: 'EmpName' },
       { data: 'RDate', className: 'text-center' },
@@ -705,12 +682,11 @@ $(function () {
       { data: 'QName' },
       {
         data: null,
+        className: 'text-center',
         orderable: false,
-        className: 'text-center no-print',
-        render: function(row) {
-          return '<button class="btn btn-action btn-outline-info mr-1" data-action="view" data-doc="'+row.DocNo+'"><i class="fas fa-eye"></i></button>' +
-                 '<button class="btn btn-action btn-outline-primary mr-1" data-action="edit" data-doc="'+row.DocNo+'"><i class="fas fa-pen"></i></button>' +
-                 '<button class="btn btn-action btn-outline-danger" data-action="delete" data-doc="'+row.DocNo+'"><i class="fas fa-trash"></i></button>';
+        width: '80px',
+        render: function(data, type, row) {
+          return '<button class="btn btn-sm btn-info" data-action="view" data-doc="' + encodeURIComponent(row.DocNo) + '" title="ดูรายละเอียด"><i class="fas fa-eye"></i></button>';
         }
       }
     ]
@@ -736,6 +712,7 @@ $(function () {
         $('#vw-kate').text(d.KName || '—');
         $('#vw-phone').text(d.Phone || '—');
         $('#vw-address').text(d.Address || '—');
+        $('#vw-edu').text((d.latest_education && d.latest_education.EqName) ? d.latest_education.EqName : '—');
 
         // Populate history
         var $hist = $('#vw-history-body').empty();
@@ -778,55 +755,6 @@ $(function () {
     });
   });
 
-  $('#empTable tbody').on('click', 'button[data-action="edit"]', function() {
-    var id = decodeURIComponent($(this).data('id'));
-    $('#editEmpForm')[0].reset();
-    $('#editEmpModal').modal('show');
-    $.getJSON('api/employee_detail.php', { id: id }).done(function(res) {
-      if(res.success) {
-        var d = res.data;
-        $('#editEmpID').val(d.EmpID);
-        $('#editEmpName').val(d.EmpName);
-        if(d.Titles) $('input[name="Titles"]', '#editEmpForm').filter('[value="'+d.Titles+'"]').prop('checked', true);
-        if(d.SexNo) $('input[name="SexNo"]', '#editEmpForm').filter('[value="'+d.SexNo+'"]').prop('checked', true);
-        $('#editKNo').val(d.KNo);
-        $('#editPhone').val(d.Phone);
-        $('#editLineID').val(d.lineID);
-        $('#editAddress').val(d.Address);
-      }
-    });
-  });
-
-  $('#editEmpForm').on('submit', function(e) {
-    e.preventDefault();
-    var $btn = $(this).find('button[type="submit"]');
-    var originalHtml = $btn.html();
-    $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>กำลังบันทึก...');
-    $.ajax({ url: 'api/employee_update.php', type: 'POST', data: $(this).serialize(), dataType: 'json' })
-    .done(function(res) {
-       if(res.success) { $('#editEmpModal').modal('hide'); dtEmp.ajax.reload(null, false); dtReg.ajax.reload(null, false); }
-       else { alert(res.message); }
-    }).always(function() { $btn.prop('disabled', false).html(originalHtml); });
-  });
-
-  var currentDelId = null;
-  $('#empTable tbody').on('click', 'button[data-action="delete"]', function() {
-    var data = dtEmp.row($(this).closest('tr')).data();
-    currentDelId = data.EmpID;
-    $('#del-empname').text(data.EmpName);
-    $('#deleteEmpModal').modal('show');
-  });
-
-  $('#deleteEmpConfirm').on('click', function() {
-    var $btn = $(this);
-    var originalHtml = $btn.html();
-    $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>กำลังลบ...');
-    $.post('api/employee_delete.php', { EmpID: currentDelId }, function(res) {
-      if(res.success) { $('#deleteEmpModal').modal('hide'); dtEmp.ajax.reload(); dtReg.ajax.reload(); }
-      else { alert(res.message || 'ลบไม่สำเร็จ'); }
-    }, 'json').always(function() { $btn.prop('disabled', false).html(originalHtml); });
-  });
-
   // --- Registration Handlers ---
   $('#regTable tbody').on('click', 'button[data-action="view"]', function() {
     var doc = $(this).data('doc');
@@ -837,9 +765,11 @@ $(function () {
       if(res.success) {
         var d = res.data;
         $('#vr-docid').text(d.DocID);
-        $('#vr-rdate').text(d.RDate);
-        $('#vr-empname').text(d.EmpName);
+        $('#vr-rdate').text(formatThaiDate(d.RDate));
+        $('#vr-empname').text((d.TitleName ? d.TitleName + ' ' : '') + d.EmpName);
         $('#vr-quit').text(d.QName);
+        $('#vr-edu').text(d.EqName || '—');
+        $('#vr-pot').text(d.PotName || '—');
         $('#vr-staff').text(d.StName + ' (' + d.StID + ')');
         $('#viewRegLoading').addClass('d-none');
         $('#viewRegContent').removeClass('d-none');
@@ -847,53 +777,80 @@ $(function () {
     });
   });
 
-  var editRegFp = flatpickr('#editRegRDate', { locale: 'th', dateFormat: 'Y-m-d' });
+  // Educational Qualification Modal for Management
+  $('#btnAddEduMgmt').on('click', function() {
+    $('#eduModalForm')[0].reset();
+    $('#eduModal').modal('show');
+  });
 
-  $('#regTable tbody').on('click', 'button[data-action="edit"]', function() {
-    var doc = $(this).data('doc');
-    $('#editRegForm')[0].reset();
-    $('#editRegModal').modal('show');
-    $.getJSON('api/register_detail.php', { doc: doc }).done(function(res) {
-      if(res.success) {
-        var d = res.data;
-        $('#editRegDocNo').val(d.DocNo);
-        $('#editRegDocID').val(d.DocID);
-        editRegFp.setDate(d.RDate);
-        $('#editRegKNo').val(d.KNo);
-        if(d.SexNo) $('input[name="SexNo"]', '#editRegForm').filter('[value="'+d.SexNo+'"]').prop('checked', true);
-        if(d.QNo)   $('input[name="QNo"]', '#editRegForm').filter('[value="'+d.QNo+'"]').prop('checked', true);
+  $('#eduModalForm').on('submit', function(e) {
+    e.preventDefault();
+    var $btn = $('#btnSaveModalEdu');
+    var eqName = $('#modalEqName').val().trim();
+    if (eqName === '') return;
+
+    $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>กำลังบันทึก...');
+    
+    $.ajax({
+      url: 'api/edu_add.php',
+      type: 'POST',
+      dataType: 'json',
+      data: { EqName: eqName }
+    })
+    .done(function(res) {
+      if (res && res.success) {
+        var newOption = new Option(res.data.EqName, res.data.EqNo, true, true);
+        $('#editRegEqNo').append(newOption).trigger('change');
+        $('#eduModal').modal('hide');
+        alert('เพิ่มวุฒิการศึกษาเรียบร้อย');
+      } else {
+        alert(res.message || 'กรุณาลองใหม่อีกครั้ง');
       }
+    })
+    .fail(function() {
+      alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+    })
+    .always(function() {
+      $btn.prop('disabled', false).html('บันทึกวุฒิการศึกษา');
     });
   });
 
-  $('#editRegForm').on('submit', function(e) {
+  // Position Modal for Management
+  $('#btnAddPotMgmt').on('click', function() {
+    $('#potModalForm')[0].reset();
+    $('#potModal').modal('show');
+  });
+
+  $('#potModalForm').on('submit', function(e) {
     e.preventDefault();
-    var $btn = $(this).find('button[type="submit"]');
-    var originalHtml = $btn.html();
+    var $btn = $('#btnSaveModalPot');
+    var potName = $('#modalPotName').val().trim();
+    if (potName === '') return;
+
     $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>กำลังบันทึก...');
-    $.ajax({ url: 'api/register_update.php', type: 'POST', data: $(this).serialize(), dataType: 'json' })
+    
+    $.ajax({
+      url: 'api/pot_add.php',
+      type: 'POST',
+      dataType: 'json',
+      data: { PotName: potName }
+    })
     .done(function(res) {
-       if(res.success) { $('#editRegModal').modal('hide'); dtReg.ajax.reload(null, false); }
-       else { alert(res.message); }
-    }).always(function() { $btn.prop('disabled', false).html(originalHtml); });
-  });
-
-  var currentDelDoc = null;
-  $('#regTable tbody').on('click', 'button[data-action="delete"]', function() {
-    var data = dtReg.row($(this).closest('tr')).data();
-    currentDelDoc = data.DocNo;
-    $('#del-reg-docid').text(data.DocID);
-    $('#deleteRegModal').modal('show');
-  });
-
-  $('#deleteRegConfirm').on('click', function() {
-    var $btn = $(this);
-    var originalHtml = $btn.html();
-    $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>กำลังลบ...');
-    $.post('api/register_delete.php', { DocNo: currentDelDoc }, function(res) {
-      if(res.success) { $('#deleteRegModal').modal('hide'); dtReg.ajax.reload(); dtEmp.ajax.reload(); }
-      else { alert(res.message || 'ลบไม่สำเร็จ'); }
-    }, 'json').always(function() { $btn.prop('disabled', false).html(originalHtml); });
+      if (res && res.success) {
+        var newOption = new Option(res.data.PotName, res.data.PotNo, true, true);
+        $('#editRegPotNo').append(newOption).trigger('change');
+        $('#potModal').modal('hide');
+        alert('เพิ่มตำแหน่งเรียบร้อย');
+      } else {
+        alert(res.message || 'กรุณาลองใหม่อีกครั้ง');
+      }
+    })
+    .fail(function() {
+      alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+    })
+    .always(function() {
+      $btn.prop('disabled', false).html('บันทึกตำแหน่ง');
+    });
   });
 
 });

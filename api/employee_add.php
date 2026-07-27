@@ -47,7 +47,7 @@ if ($errors) {
 
 $pdo = getDB();
 
-$tCheck = $pdo->prepare("SELECT 1 FROM titles WHERE DocNo = :t");
+$tCheck = $pdo->prepare("SELECT 1 FROM titles WHERE TitleNo = :t");
 $tCheck->execute([':t' => (int)$titles]);
 if (!$tCheck->fetchColumn()) {
     http_response_code(422);

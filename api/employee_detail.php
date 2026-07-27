@@ -16,8 +16,7 @@ $stmt = $pdo->prepare(
     "SELECT e.EmpID, e.Titles, t.Title AS TitleName, e.EmpName, e.SexNo, s.SexName, e.KNo, k.KName,
             e.Phone, e.lineID, e.Address, e.SDate
      FROM employee e
-     LEFT JOIN titles t ON t.DocNo = e.Titles
-     LEFT JOIN sex    s ON s.SexNo = e.SexNo
+     LEFT JOIN titles t ON t.TitleNo = e.Titles     LEFT JOIN sex    s ON s.SexNo = e.SexNo
      LEFT JOIN kate   k ON k.KNo   = e.KNo
      WHERE e.EmpID = :id"
 );
@@ -54,5 +53,18 @@ $stRep = $pdo->prepare(
 );
 $stRep->execute([':id' => $id]);
 $row['reporting_history'] = $stRep->fetchAll(PDO::FETCH_ASSOC);
+
+// ดึงข้อมูลการศึกษาล่าสุด
+$stEdu = $pdo->prepare(
+    "SELECT edu.EqName, r.RDate
+     FROM register r
+     LEFT JOIN educational_qualification edu ON edu.EqNo = r.EqNo
+     WHERE r.EmpID = :id AND edu.EqNo IS NOT NULL
+     ORDER BY r.RDate DESC
+     LIMIT 1"
+);
+$stEdu->execute([':id' => $id]);
+$latestEdu = $stEdu->fetch(PDO::FETCH_ASSOC);
+$row['latest_education'] = $latestEdu ?: null;
 
 echo json_encode(['success' => true, 'data' => $row], JSON_UNESCAPED_UNICODE);

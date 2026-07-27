@@ -14,7 +14,6 @@ if ($length <= 0 || $length > 200) {
 $search = trim($_GET['search']['value'] ?? '');
 
 $columnsMap = [
-    0 => 'r.DocID',
     1 => 'r.EmpID',
     2 => 'e.EmpName',
     3 => 'r.RDate',
@@ -29,6 +28,7 @@ $pdo = getDB();
 
 $baseSql = "FROM register r
             LEFT JOIN employee e ON e.EmpID = r.EmpID
+            LEFT JOIN titles   t ON t.TitleNo = e.Titles
             LEFT JOIN kate     k ON k.KNo   = r.KNo
             LEFT JOIN quit     q ON q.QNo   = r.QNo
             WHERE r.EmpID IS NOT NULL AND r.EmpID <> ''";
@@ -55,7 +55,7 @@ $cntStmt = $pdo->prepare("SELECT COUNT(*) " . $baseSql . $where);
 $cntStmt->execute($params);
 $filtered = (int)$cntStmt->fetchColumn();
 
-$sql = "SELECT r.DocNo, r.DocID, r.EmpID, e.EmpName, r.RDate, k.KName, q.QName "
+$sql = "SELECT r.DocNo, r.DocID, r.EmpID, t.Title AS TitleName, e.EmpName, r.RDate, k.KName, q.QName "
      . $baseSql . $where
      . " ORDER BY $orderCol $orderDir, r.DocNo DESC"
      . " LIMIT :limit OFFSET :offset";
@@ -70,11 +70,12 @@ $stmt->execute();
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $data = array_map(function ($r) {
+    $fullName = ($r['TitleName'] ? $r['TitleName'] . ' ' : '') . ($r['EmpName'] ?? '');
     return [
         'DocNo'   => (int)$r['DocNo'],
         'DocID'   => $r['DocID']   ?? '',
         'EmpID'   => $r['EmpID']   ?? '',
-        'EmpName' => $r['EmpName'] ?? '',
+        'EmpName' => $fullName,
         'RDate'   => $r['RDate']   ?? '',
         'KName'   => $r['KName']   ?? '',
         'QName'   => $r['QName']   ?? '',

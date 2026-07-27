@@ -248,6 +248,11 @@ else                            $rangeLabel = 'ทั้งหมด (ไม่�
           <i class="fas fa-bars text-navy"></i>
         </a>
       </li>
+      <li class="nav-item d-none d-lg-block">
+        <span class="nav-link text-navy font-weight-bold">
+          <i class="fas fa-desktop mr-2"></i>ระบบจัดการคนว่างงาน สำนักงานจัดหางานกรุงเทพมหานครพื้นที่ 2
+        </span>
+      </li>
     </ul>
 
     <ul class="navbar-nav ml-auto">
@@ -261,7 +266,7 @@ else                            $rangeLabel = 'ทั้งหมด (ไม่�
           <div class="d-flex align-items-center">
             <div class="text-right mr-2 d-none d-sm-block">
               <div class="font-weight-bold" style="line-height:1;"><?= htmlspecialchars($user['StName'] ?: $user['UserName']) ?></div>
-              <small class="text-muted"><?= htmlspecialchars($user['StPost'] ?: 'เจ้าหน้าที่') ?></small>
+              <small class="text-muted"><?= htmlspecialchars($user['StPostName'] ?: ($user['StPost'] ?: 'เจ้าหน้าที่')) ?></small>
             </div>
             <i class="fas fa-user-circle fa-2x text-navy"></i>
           </div>
@@ -453,7 +458,7 @@ else                            $rangeLabel = 'ทั้งหมด (ไม่�
 
   <footer class="main-footer border-top-0 bg-transparent text-center py-4">
     <div class="text-muted small">
-      © <?php echo (date('Y') + 543); ?> สำนักงานจัดหางานกรุงเทพมหานครพื้นที่ 2 • Government Digital Service Platform
+      © <?php echo (date('Y') + 543); ?> สำนักงานจัดหางานกรุงเทพมหานครพื้นที่ 2 • Develop By Nanthajd sawasri
     </div>
   </footer>
 

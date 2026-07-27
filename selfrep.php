@@ -1010,15 +1010,18 @@ $(function () {
           if (yearInput.value) {
             yearInput.value = parseInt(yearInput.value) + 543;
           }
-          // Override input change to convert back to CE
-          yearInput.addEventListener('change', function(e) {
-            if (e.target.value) {
-              var beYear = parseInt(e.target.value);
-              var ceYear = beYear > 2400 ? beYear - 543 : beYear;
-              instance.currentYear = ceYear;
-              instance.updateNavigationCurrentMonth();
-            }
-          });
+          // Override input change to convert back to CE (use once:true to prevent duplicate listeners)
+          if (!yearInput.dataset.thaiYearBound) {
+            yearInput.dataset.thaiYearBound = '1';
+            yearInput.addEventListener('change', function(e) {
+              if (e.target.value) {
+                var beYear = parseInt(e.target.value);
+                var ceYear = beYear > 2400 ? beYear - 543 : beYear;
+                instance.currentYear = ceYear;
+                instance.updateNavigationCurrentMonth();
+              }
+            });
+          }
         }
       }, 50);
     }
@@ -1038,15 +1041,18 @@ $(function () {
           if (yearInput.value) {
             yearInput.value = parseInt(yearInput.value) + 543;
           }
-          // Override input change to convert back to CE
-          yearInput.addEventListener('change', function(e) {
-            if (e.target.value) {
-              var beYear = parseInt(e.target.value);
-              var ceYear = beYear > 2400 ? beYear - 543 : beYear;
-              instance.currentYear = ceYear;
-              instance.updateNavigationCurrentMonth();
-            }
-          });
+          // Override input change to convert back to CE (use once:true to prevent duplicate listeners)
+          if (!yearInput.dataset.thaiYearBound) {
+            yearInput.dataset.thaiYearBound = '1';
+            yearInput.addEventListener('change', function(e) {
+              if (e.target.value) {
+                var beYear = parseInt(e.target.value);
+                var ceYear = beYear > 2400 ? beYear - 543 : beYear;
+                instance.currentYear = ceYear;
+                instance.updateNavigationCurrentMonth();
+              }
+            });
+          }
         }
       }, 50);
     }
@@ -1669,24 +1675,36 @@ $(function () {
     });
   }
 
+  // Helper: format Date to Y-m-d using LOCAL time (avoid UTC shift from toISOString)
+  function toLocalYMD(d) {
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+
   // Show Employed Data Modal
   $('#btnShowEmployed').on('click', function() {
     $('#employedModal').modal('show');
 
-    // Load with default date range
-    var dateFromObj = document.querySelector('#employedDateFrom')._flatpickr.selectedDates[0];
-    var dateToObj = document.querySelector('#employedDateTo')._flatpickr.selectedDates[0];
+    // Load with default date range (safe access)
+    var fpFrom = document.querySelector('#employedDateFrom')._flatpickr;
+    var fpTo = document.querySelector('#employedDateTo')._flatpickr;
+    var dateFromObj = fpFrom && fpFrom.selectedDates ? fpFrom.selectedDates[0] : null;
+    var dateToObj = fpTo && fpTo.selectedDates ? fpTo.selectedDates[0] : null;
 
-    var dateFrom = dateFromObj ? dateFromObj.toISOString().split('T')[0] : '';
-    var dateTo = dateToObj ? dateToObj.toISOString().split('T')[0] : '';
+    var dateFrom = dateFromObj ? toLocalYMD(dateFromObj) : '';
+    var dateTo = dateToObj ? toLocalYMD(dateToObj) : '';
 
     loadEmployedData(dateFrom, dateTo);
   });
 
   // Filter Employed Data
   $('#btnFilterEmployed').on('click', function() {
-    var dateFromObj = document.querySelector('#employedDateFrom')._flatpickr.selectedDates[0];
-    var dateToObj = document.querySelector('#employedDateTo')._flatpickr.selectedDates[0];
+    var fpFrom = document.querySelector('#employedDateFrom')._flatpickr;
+    var fpTo = document.querySelector('#employedDateTo')._flatpickr;
+    var dateFromObj = fpFrom && fpFrom.selectedDates ? fpFrom.selectedDates[0] : null;
+    var dateToObj = fpTo && fpTo.selectedDates ? fpTo.selectedDates[0] : null;
 
     if (!dateFromObj || !dateToObj) {
       Swal.fire({
@@ -1697,8 +1715,8 @@ $(function () {
       return;
     }
 
-    var dateFrom = dateFromObj.toISOString().split('T')[0];
-    var dateTo = dateToObj.toISOString().split('T')[0];
+    var dateFrom = toLocalYMD(dateFromObj);
+    var dateTo = toLocalYMD(dateToObj);
 
     // Validate date range
     if (dateFrom > dateTo) {

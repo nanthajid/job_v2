@@ -138,6 +138,10 @@ $pdo  = getDB();
       vertical-align: middle;
     }
 
+    .border-bottom-dotted {
+      border-bottom: 1.5px dotted #666 !important;
+    }
+
     @media print {
       .no-print, .main-sidebar, .main-header, .main-footer { display: none !important; }
       .content-wrapper { margin-left: 0 !important; padding: 0 !important; background: white !important; }
@@ -159,6 +163,11 @@ $pdo  = getDB();
           <i class="fas fa-bars text-navy"></i>
         </a>
       </li>
+      <li class="nav-item d-none d-lg-block">
+        <span class="nav-link text-navy font-weight-bold">
+          <i class="fas fa-desktop mr-2"></i>ระบบจัดการคนว่างงาน สำนักงานจัดหางานกรุงเทพมหานครพื้นที่ 2
+        </span>
+      </li>
     </ul>
 
     <ul class="navbar-nav ml-auto">
@@ -172,7 +181,7 @@ $pdo  = getDB();
           <div class="d-flex align-items-center">
             <div class="text-right mr-2 d-none d-sm-block">
               <div class="font-weight-bold" style="line-height:1;"><?= htmlspecialchars($user['StName'] ?: $user['UserName']) ?></div>
-              <small class="text-muted"><?= htmlspecialchars($user['StPost'] ?: 'เจ้าหน้าที่') ?></small>
+              <small class="text-muted"><?= htmlspecialchars($user['StPostName'] ?: ($user['StPost'] ?: 'เจ้าหน้าที่')) ?></small>
             </div>
             <i class="fas fa-user-circle fa-2x text-navy"></i>
           </div>
@@ -228,37 +237,37 @@ $pdo  = getDB();
            <div class="gov-card">
               <div class="gov-card-header bg-light d-flex align-items-center">
                  <h3 class="gov-card-title"><i class="fas fa-id-card mr-2 text-royal"></i> ข้อมูลส่วนบุคคล</h3>
-                 <button onclick="window.print()" class="btn btn-gov-outline btn-sm ml-auto no-print">
+                 <button onclick="window.print()" class="btn btn-secondary btn-sm ml-auto no-print">
                    <i class="fas fa-print mr-1"></i>พิมพ์ประวัติ
                  </button>
               </div>
               <div class="gov-card-body p-4">
                  <div class="row">
-                    <div class="col-md-4 mb-4">
+                    <div class="col-md-4 mb-4 border-bottom-dotted pb-3">
                        <div class="history-label">เลขบัตรประชาชน</div>
-                       <div id="rs-empid" class="history-value h4 text-monospace"></div>
+                       <div id="rs-empid" class="history-value h4 text-monospace mb-0"></div>
                     </div>
-                    <div class="col-md-5 mb-4">
+                    <div class="col-md-5 mb-4 border-bottom-dotted pb-3">
                        <div class="history-label">ชื่อ-นามสกุล</div>
-                       <div id="rs-empname" class="history-value h4"></div>
+                       <div id="rs-empname" class="history-value h4 mb-0"></div>
                     </div>
-                    <div class="col-md-3 mb-4">
+                    <div class="col-md-3 mb-4 border-bottom-dotted pb-3">
                        <div class="history-label">เพศ</div>
-                       <div id="rs-sex" class="history-value"></div>
+                       <div id="rs-sex" class="history-value mb-0"></div>
                     </div>
-                    <div class="col-md-4 mb-4">
+                    <div class="col-md-4 mb-4 border-bottom-dotted pb-3">
                        <div class="history-label">เบอร์โทรศัพท์</div>
-                       <div id="rs-phone" class="history-value"></div>
+                       <div id="rs-phone" class="history-value mb-0"></div>
                     </div>
-                    <div class="col-md-4 mb-4">
+                    <div class="col-md-4 mb-4 border-bottom-dotted pb-3">
                        <div class="history-label">Line ID</div>
-                       <div id="rs-line" class="history-value"></div>
+                       <div id="rs-line" class="history-value mb-0"></div>
                     </div>
-                    <div class="col-md-4 mb-4">
+                    <div class="col-md-4 mb-4 border-bottom-dotted pb-3">
                        <div class="history-label">เขตพื้นที่</div>
-                       <div id="rs-kate" class="history-value"></div>
+                       <div id="rs-kate" class="history-value mb-0"></div>
                     </div>
-                    <div class="col-md-12">
+                    <div class="col-md-12 pt-2">
                        <div class="history-label">ที่อยู่ปัจจุบัน</div>
                        <div id="rs-address" class="history-value" style="font-weight: 400;"></div>
                     </div>
@@ -271,6 +280,10 @@ $pdo  = getDB();
                  <div class="gov-card h-100">
                     <div class="gov-card-header bg-navy text-white" style="border-bottom: 3px solid var(--gov-gold) !important;">
                        <h3 class="gov-card-title text-white"><i class="fas fa-file-contract mr-2"></i> ประวัติการขึ้นทะเบียน</h3>
+                    </div>
+                    <div class="gov-card-body p-4 border-bottom">
+                       <div class="history-label">แสดงข้อมูลการศึกษาล่าสุด</div>
+                       <div id="rs-edu" class="history-value">—</div>
                     </div>
                     <div class="gov-card-body p-0">
                        <div class="table-responsive">
@@ -327,9 +340,9 @@ $pdo  = getDB();
     </section>
   </div>
 
-  <footer class="main-footer border-top-0 bg-transparent text-center py-4 no-print">
+  <footer class="main-footer border-top-0 bg-transparent text-center py-4">
     <div class="text-muted small">
-      © <?php echo (date('Y') + 543); ?> สำนักงานจัดหางานกรุงเทพมหานครพื้นที่ 2 • Government Digital Service Platform
+      © <?php echo (date('Y') + 543); ?> สำนักงานจัดหางานกรุงเทพมหานครพื้นที่ 2 • Develop By Nanthajd sawasri
     </div>
   </footer>
 </div>
@@ -379,6 +392,7 @@ $(function() {
           $('#rs-line').text(d.lineID || '—');
           $('#rs-kate').text(d.KName || '—');
           $('#rs-address').text(d.Address || '—');
+          $('#rs-edu').text((d.latest_education && d.latest_education.EqName) ? d.latest_education.EqName : '—');
 
           var $reg = $('#rs-reg-list').empty();
           if (d.history && d.history.length > 0) {

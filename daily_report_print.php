@@ -27,13 +27,16 @@ if ($validDate($dateTo)) {
 }
 $where = $conds ? ' AND ' . implode(' AND ', $conds) : '';
 
-$sql = "SELECT r.DocID, r.EmpID, e.EmpName, r.RDate, k.KName, q.QName
+$sql = "SELECT r.DocID, r.EmpID, t.Title AS TitleName, e.EmpName, r.RDate, k.KName, q.QName, edu.EqName, pot.PotName
         FROM register r
         LEFT JOIN employee e ON e.EmpID = r.EmpID
+        LEFT JOIN titles   t ON t.TitleNo = e.Titles
         LEFT JOIN kate     k ON k.KNo   = r.KNo
         LEFT JOIN quit     q ON q.QNo   = r.QNo
+        LEFT JOIN educational_qualification edu ON edu.EqNo = r.EqNo
+        LEFT JOIN emp_position pot ON pot.PotNo = r.PotNo
         WHERE 1=1 $where
-        ORDER BY r.DocID ASC";
+        ORDER BY r.RDate ASC, r.DocNo ASC";
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
@@ -166,7 +169,7 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
     
     table.table-report { width: 100%; border-collapse: collapse; margin-top: 15px; }
     table.table-report th, table.table-report td {
-      border: 1px solid #dee2e6 !important;
+      border: 1px dashed #dee2e6 !important;
       padding: 12px 8px;
       text-align: center;
       vertical-align: middle;
@@ -177,7 +180,7 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
       color: var(--gov-navy) !important;
       font-weight: 700; 
       font-size: 14px;
-      border-bottom: 2px solid var(--gov-border) !important;
+      border-bottom: 2px dashed #dee2e6 !important;
     }
     table.table-report tbody td.text-left { text-align: left; padding-left: 12px; }
 
@@ -187,7 +190,7 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
       justify-content: space-between;
       font-size: 12px;
       color: var(--gov-text-muted);
-      border-top: 1px solid var(--gov-border);
+      border-top: 1px dashed #dee2e6;
       padding-top: 15px;
     }
 
@@ -213,8 +216,8 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
         border-radius: 0;
       }
       .doc-header h1, .doc-header h2 { color: #000; }
-      table.table-report th, table.table-report td { border: 1px solid #000 !important; }
-      table.table-report thead th { background: #eee !important; color: #000 !important; }
+      table.table-report th, table.table-report td { border: 1px dashed #bbb !important; }
+      table.table-report thead th { background: #f8f9fa !important; color: #000 !important; }
       @page { size: A4 portrait; margin: 15mm 10mm; }
     }
 
@@ -234,6 +237,11 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
           <i class="fas fa-bars text-navy"></i>
         </a>
       </li>
+      <li class="nav-item d-none d-lg-block">
+        <span class="nav-link text-navy font-weight-bold">
+          <i class="fas fa-desktop mr-2"></i>ระบบจัดการคนว่างงาน สำนักงานจัดหางานกรุงเทพมหานครพื้นที่ 2
+        </span>
+      </li>
     </ul>
 
     <ul class="navbar-nav ml-auto">
@@ -247,7 +255,7 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
           <div class="d-flex align-items-center">
             <div class="text-right mr-2 d-none d-sm-block">
               <div class="font-weight-bold" style="line-height:1;"><?= htmlspecialchars($user['StName'] ?: $user['UserName']) ?></div>
-              <small class="text-muted"><?= htmlspecialchars($user['StPost'] ?: 'เจ้าหน้าที่') ?></small>
+              <small class="text-muted"><?= htmlspecialchars($user['StPostName'] ?: ($user['StPost'] ?: 'เจ้าหน้าที่')) ?></small>
             </div>
             <i class="fas fa-user-circle fa-2x text-navy"></i>
           </div>
@@ -316,7 +324,10 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
                   <button type="button" class="btn btn-success px-4 shadow-sm ml-2" onclick="window.print()" style="background-color: #28a745; border-color: #28a745; border-radius: 8px; padding: 0.6rem 1.5rem;">
                     <i class="fas fa-print mr-2"></i>พิมพ์รายงาน
                   </button>
-                  <a href="daily_report_print.php" class="btn btn-gov-outline ml-2" style="padding: 0.6rem 1.5rem;">
+                  <button type="button" id="exportExcel" class="btn btn-outline-success px-4 shadow-sm ml-2" style="border-radius: 8px; padding: 0.6rem 1.5rem;">
+                    <i class="fas fa-file-excel mr-2"></i>ส่งออก Excel
+                  </button>
+                  <a href="daily_report_print.php" class="btn btn-secondary ml-2" style="padding: 0.6rem 1.5rem;">
                     <i class="fas fa-redo mr-2"></i>ล้าง
                   </a>
                 </div>
@@ -326,7 +337,7 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
         </div>
 
         <!-- Report Content -->
-        <div class="report-paper">
+        <div class="report-paper" id="reportContent">
           <div class="doc-header">
             <h1>สำนักงานจัดหางานกรุงเทพมหานครพื้นที่ 2</h1>
             <h2>รายงานรายละเอียดผู้มาขึ้นทะเบียนว่างงาน</h2>
@@ -337,24 +348,28 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
             <thead>
               <tr>
                 <th style="width: 5%;">ลำดับ</th>
-                <th style="width: 15%;">วันที่บันทึก</th>
-                <th style="width: 15%;">เลขบัตรประชาชน</th>
-                <th style="width: 25%;">ชื่อ-นามสกุล</th>
-                <th style="width: 15%;">เขต</th>
-                <th style="width: 25%;">สาเหตุที่ออกจากงาน</th>
+                <th style="width: 12%;">วันที่บันทึก</th>
+                <th style="width: 13%;">เลขบัตรประชาชน</th>
+                <th style="width: 20%;">ชื่อ-นามสกุล</th>
+                <th style="width: 12%;">วุฒิการศึกษา</th>
+                <th style="width: 12%;">ตำแหน่งล่าสุด</th>
+                <th style="width: 11%;">เขต</th>
+                <th style="width: 15%;">สาเหตุที่ออกจากงาน</th>
               </tr>
             </thead>
             <tbody>
               <?php if (empty($rows)): ?>
-                <tr><td colspan="6" style="padding:40px;">ไม่พบข้อมูลในช่วงเวลาที่เลือก</td></tr>
+                <tr><td colspan="8" style="padding:40px;">ไม่พบข้อมูลในช่วงเวลาที่เลือก</td></tr>
               <?php else: $i = 1; foreach ($rows as $row): ?>
                 <tr>
                   <td><?= $i++ ?></td>
                   <td><?= date('d/m/', strtotime($row['RDate'])) . (date('Y', strtotime($row['RDate'])) + 543) ?></td>
-                  <td><?= htmlspecialchars($row['EmpID']) ?></td>
-                  <td class="text-left"><?= htmlspecialchars($row['EmpName']) ?></td>
-                  <td><?= htmlspecialchars($row['KName']) ?></td>
-                  <td class="text-left"><?= htmlspecialchars($row['QName']) ?></td>
+                  <td><?= htmlspecialchars($row['EmpID'] ?? '') ?></td>
+                  <td class="text-left"><?= htmlspecialchars((($row['TitleName'] ?? '') ? $row['TitleName'] . ' ' : '') . ($row['EmpName'] ?? '')) ?></td>
+                  <td><?= htmlspecialchars($row['EqName'] ?? '') ?></td>
+                  <td><?= htmlspecialchars($row['PotName'] ?? '') ?></td>
+                  <td><?= htmlspecialchars($row['KName'] ?? '') ?></td>
+                  <td class="text-left"><?= htmlspecialchars($row['QName'] ?? '') ?></td>
                 </tr>
               <?php endforeach; endif; ?>
             </tbody>
@@ -376,6 +391,7 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://npmcdn.com/flatpickr/dist/l10n/th.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <script>
   $(function () {
@@ -386,6 +402,19 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
     };
     flatpickr("#filterDateFrom", commonConfig);
     flatpickr("#filterDateTo", commonConfig);
+
+    // Export to Excel
+    $('#exportExcel').on('click', function() {
+      const table = document.querySelector('.table-report');
+      const wb = XLSX.utils.table_to_book(table, { sheet: "รายงานการขึ้นทะเบียน" });
+      
+      // Get dates for filename
+      const from = $('#filterDateFrom').val() || 'all';
+      const to = $('#filterDateTo').val() || 'all';
+      const filename = `รายงานขึ้นทะเบียนว่างงาน_${from}_ถึง_${to}.xlsx`;
+      
+      XLSX.writeFile(wb, filename);
+    });
   });
 </script>
 </body>
