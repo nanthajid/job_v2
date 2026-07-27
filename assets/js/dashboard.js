@@ -195,10 +195,12 @@ $(function () {
      Build progress bars for reasons
      ==================================================== */
   var $reasonList = $('#reason-progress-list');
+  var barTotal = (typeof totalCheckinInPeriod !== 'undefined') ? totalCheckinInPeriod : totalCheckin;
+  var barLabel = (typeof isCheckinFiltered !== 'undefined' && isCheckinFiltered) ? 'รวม (ในช่วงที่เลือก)' : 'รวมทั้งหมด';
 
   reasonData.labels.forEach(function (label, i) {
     var cnt    = reasonData.counts[i];
-    var pct    = totalCheckin > 0 ? ((cnt / totalCheckin) * 100).toFixed(1) : 0;
+    var pct    = barTotal > 0 ? ((cnt / barTotal) * 100).toFixed(1) : 0;
     var color  = reasonData.colors[i];
     $reasonList.append(
       '<div class="reason-row d-flex align-items-center">' +
@@ -223,12 +225,12 @@ $(function () {
   $reasonList.append(
     '<div class="d-flex align-items-center justify-content-between px-2 pt-2 border-top mt-1">' +
       '<span class="font-weight-bold text-dark" style="font-size:.9rem;">' +
-        '<i class="fas fa-clipboard-check mr-1 text-danger"></i>รวมทั้งหมด' +
+        '<i class="fas fa-clipboard-check mr-1 text-danger"></i>' + barLabel +
       '</span>' +
       '<strong id="reason-total" class="text-danger" style="font-size:1.2rem;">0</strong>' +
     '</div>'
   );
-  animateCounter($('#reason-total'), totalCheckin);
+  animateCounter($('#reason-total'), barTotal);
 
   $('[data-toggle="tooltip"]').tooltip();
 
@@ -240,6 +242,11 @@ $(function () {
   function loadDailyChart(dateFrom, dateTo) {
     $.getJSON('api/daily_register.php', { date_from: dateFrom, date_to: dateTo }, function (res) {
       if (!res.success) { return; }
+
+      // Update title with month from dateFrom
+      var months = ["", "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+      var d = new Date(dateFrom);
+      $('#titleRegMonth').text(months[d.getMonth() + 1] + ' ' + (d.getFullYear() + 543));
 
       var labels = res.data.map(function (d) {
         var p = d.day.split('-');
@@ -346,6 +353,11 @@ $(function () {
     $.getJSON('api/daily_checkin.php', { date_from: dateFrom, date_to: dateTo }, function (res) {
       if (!res.success) { return; }
 
+      // Update title with month from dateFrom
+      var months = ["", "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+      var d = new Date(dateFrom);
+      $('#titleCiMonth').text(months[d.getMonth() + 1] + ' ' + (d.getFullYear() + 543));
+
       var labels = res.data.map(function (d) {
         var p = d.day.split('-');
         return p[2] + '/' + p[1];
@@ -434,6 +446,91 @@ $(function () {
   });
 
   /* ====================================================
+     District Register Filter (Reload page)
+     ==================================================== */
+  $('#btnApplyDistFilter').on('click', function () {
+    var f = $('#distFilterDateFrom').val();
+    var t = $('#distFilterDateTo').val();
+
+    // Maintain check-in filter if present
+    var cf = $('#ciDistFilterDateFrom').val();
+    var ct = $('#ciDistFilterDateTo').val();
+
+    var url = 'index.php?';
+    if (cf && ct) { url += 'ci_dist_from=' + cf + '&ci_dist_to=' + ct + '&'; }
+
+    if (!f || !t) {
+        window.location.href = url.replace(/&$/, '') + '#section-dist-reg';
+        return;
+    }
+    if (f > t) { alert('วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด'); return; }
+    window.location.href = url + 'dist_from=' + f + '&dist_to=' + t + '#section-dist-reg';
+  });
+
+  $('#btnApplyCiDistFilter').on('click', function () {
+    var f = $('#ciDistFilterDateFrom').val();
+    var t = $('#ciDistFilterDateTo').val();
+    
+    // Maintain registration filter if present
+    var rf = $('#distFilterDateFrom').val();
+    var rt = $('#distFilterDateTo').val();
+    
+    var url = 'index.php?';
+    if (rf && rt) { url += 'dist_from=' + rf + '&dist_to=' + rt + '&'; }
+
+    if (!f || !t) {
+        window.location.href = url.replace(/&$/, '') + '#section-dist-ci';
+        return;
+    }
+    if (f > t) { alert('วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด'); return; }
+    window.location.href = url + 'ci_dist_from=' + f + '&ci_dist_to=' + t + '#section-dist-ci';
+  });
+
+  $('#btnApplyGDistFilter').on('click', function () {
+    var f = $('#gDistFilterDateFrom').val();
+    var t = $('#gDistFilterDateTo').val();
+    var cf = $('#ciDistFilterDateFrom').val();
+    var ct = $('#ciDistFilterDateTo').val();
+    var url = 'index.php?';
+    if (cf && ct) { url += 'ci_dist_from=' + cf + '&ci_dist_to=' + ct + '&'; }
+    if (!f || !t) { window.location.href = url.replace(/&$/, '') + '#section-dist-reg'; return; }
+    window.location.href = url + 'dist_from=' + f + '&dist_to=' + t + '#section-dist-reg';
+  });
+
+  $('#btnApplyGCiDistFilter').on('click', function () {
+    var f = $('#gCiDistFilterDateFrom').val();
+    var t = $('#gCiDistFilterDateTo').val();
+    var rf = $('#distFilterDateFrom').val();
+    var rt = $('#distFilterDateTo').val();
+    var url = 'index.php?';
+    if (rf && rt) { url += 'dist_from=' + rf + '&dist_to=' + rt + '&'; }
+    if (!f || !t) { window.location.href = url.replace(/&$/, '') + '#section-dist-ci'; return; }
+    window.location.href = url + 'ci_dist_from=' + f + '&ci_dist_to=' + t + '#section-dist-ci';
+  });
+
+  $('#btnApplyQFilter').on('click', function () {
+    var f = $('#qFilterDateFrom').val();
+    var t = $('#qFilterDateTo').val();
+    var cf = $('#ciDistFilterDateFrom').val();
+    var ct = $('#ciDistFilterDateTo').val();
+    var url = 'index.php?';
+    if (cf && ct) { url += 'ci_dist_from=' + cf + '&ci_dist_to=' + ct + '&'; }
+    if (!f || !t) { window.location.href = url.replace(/&$/, '') + '#section-reason'; return; }
+    window.location.href = url + 'dist_from=' + f + '&dist_to=' + t + '#section-reason';
+  });
+
+  $('#btnApplyRFilter').on('click', function () {
+    var f = $('#rFilterDateFrom').val();
+    var t = $('#rFilterDateTo').val();
+    var rf = $('#distFilterDateFrom').val();
+    var rt = $('#distFilterDateTo').val();
+    var url = 'index.php?';
+    if (rf && rt) { url += 'dist_from=' + rf + '&dist_to=' + rt + '&'; }
+    if (!f || !t) { window.location.href = url.replace(/&$/, '') + '#section-reason'; return; }
+    window.location.href = url + 'ci_dist_from=' + f + '&ci_dist_to=' + t + '#section-reason';
+  });
+
+  /* ====================================================
      DataTable — ตัวอย่างข้อมูล
      ==================================================== */
   var sampleRows = [
@@ -463,6 +560,37 @@ $(function () {
     pageLength: 5,
     lengthMenu: [5, 10, 25, 50],
     columnDefs: [{ orderable: false, targets: 6 }]
+  });
+
+  /* ====================================================
+     Back to Top Button
+     ==================================================== */
+  var $backToTop = $('#backToTop');
+  
+  function checkScroll() {
+    // Check scroll position from multiple sources
+    var scrollPos = $(window).scrollTop() || 
+                    $('html').scrollTop() || 
+                    $('body').scrollTop() || 
+                    $('.content-wrapper').scrollTop() || 0;
+    
+    if (scrollPos > 300) {
+      $backToTop.fadeIn();
+    } else {
+      $backToTop.fadeOut();
+    }
+  }
+
+  $(window).on('scroll', checkScroll);
+  $('.content-wrapper').on('scroll', checkScroll);
+  $('body').on('scroll', checkScroll);
+  
+  // Also check every 500ms just in case
+  setInterval(checkScroll, 500);
+
+  $backToTop.on('click', function (e) {
+    e.preventDefault();
+    $('html, body, .content-wrapper').animate({ scrollTop: 0 }, 600);
   });
 
 });
