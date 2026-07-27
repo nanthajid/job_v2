@@ -1,0 +1,43 @@
+CREATE TABLE IF NOT EXISTS vacancy_notice (
+  NoticeID INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  EmployerID VARCHAR(20) NULL,
+  EmployerName VARCHAR(255) NOT NULL,
+  BusinessType VARCHAR(255) NULL,
+  EmployeeCount INT NULL,
+  EmployerPhone VARCHAR(30) NULL,
+  IssuedBy VARCHAR(100) NULL,
+  BuildingName VARCHAR(255) NULL,
+  HouseNo VARCHAR(50) NULL,
+  Moo VARCHAR(20) NULL,
+  Soi VARCHAR(100) NULL,
+  Road VARCHAR(150) NULL,
+  Subdistrict VARCHAR(150) NULL,
+  District VARCHAR(150) NULL,
+  Province VARCHAR(150) NULL,
+  PostalCode VARCHAR(20) NULL,
+  ContactName VARCHAR(150) NULL,
+  ContactPosition VARCHAR(150) NULL,
+  StID VARCHAR(15) NULL,
+  CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (NoticeID),
+  KEY idx_vacancy_notice_created (CreatedAt)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS vacancy_notice_position (
+  PositionID INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  NoticeID INT UNSIGNED NOT NULL,
+  PositionName VARCHAR(255) NOT NULL,
+  Headcount INT NOT NULL DEFAULT 1,
+  Gender VARCHAR(30) NULL,
+  AgeRange VARCHAR(50) NULL,
+  Education VARCHAR(255) NULL,
+  Wage VARCHAR(100) NULL,
+  WorkSchedule VARCHAR(255) NULL,
+  MilitaryStatus VARCHAR(100) NULL,
+  Conditions TEXT NULL,
+  ExpireDate DATE NULL,
+  Remark TEXT NULL,
+  PRIMARY KEY (PositionID),
+  KEY idx_vacancy_position_notice (NoticeID),
+  CONSTRAINT fk_vacancy_position_notice FOREIGN KEY (NoticeID) REFERENCES vacancy_notice (NoticeID) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
