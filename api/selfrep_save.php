@@ -3,6 +3,7 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLoginApi();
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/doc_running_helper.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -16,7 +17,9 @@ $empID   = trim($_POST['EmpID']   ?? '');
 $titles  = trim($_POST['Titles']  ?? '');
 $kNo     = trim($_POST['KNo']     ?? '');
 $qNo     = trim($_POST['QNo']     ?? '');
+$eqNo    = trim($_POST['EqNo']    ?? '');
 $jNo     = trim($_POST['JNo']     ?? '');
+$potNo   = trim($_POST['PotNo']   ?? '');
 $sexNo   = trim($_POST['SexNo']   ?? '');
 $rDate   = trim($_POST['RDate']   ?? '');
 $phone   = trim($_POST['Phone']   ?? '');
@@ -37,8 +40,14 @@ if (!ctype_digit($kNo) || (int)$kNo <= 0) {
 if (!ctype_digit($qNo) || (int)$qNo <= 0) {
     $errors[] = 'กรุณาเลือกสาเหตุที่ออกจากงาน';
 }
+if ($eqNo !== '' && (!ctype_digit($eqNo) || (int)$eqNo <= 0)) {
+    $errors[] = 'วุฒิการศึกษาล่าสุดไม่ถูกต้อง';
+}
 if (!ctype_digit($jNo) || (int)$jNo <= 0) {
     $errors[] = 'กรุณาเลือกสถานะการได้งาน';
+}
+if ($potNo !== '' && (!ctype_digit($potNo) || (int)$potNo <= 0)) {
+    $errors[] = 'ตำแหน่งล่าสุดไม่ถูกต้อง';
 }
 if (!ctype_digit($sexNo) || (int)$sexNo <= 0) {
     $errors[] = 'กรุณาเลือกเพศ';
@@ -64,12 +73,21 @@ if ($errors) {
 $pdo = getDB();
 
 // ตรวจ FK
-foreach ([
+$fkChecks = [
     ['t' => 'kate', 'k' => 'KNo', 'v' => (int)$kNo,   'msg' => 'ไม่พบเขตที่เลือก'],
     ['t' => 'quit', 'k' => 'QNo', 'v' => (int)$qNo,   'msg' => 'ไม่พบสาเหตุที่เลือก'],
     ['t' => 'job',  'k' => 'JNo', 'v' => (int)$jNo,   'msg' => 'ไม่พบสถานะการได้งานที่เลือก'],
     ['t' => 'sex',  'k' => 'SexNo','v' => (int)$sexNo,'msg' => 'ไม่พบเพศที่เลือก'],
-] as $fk) {
+];
+
+if ($eqNo !== '') {
+    $fkChecks[] = ['t' => 'educational_qualification', 'k' => 'EqNo', 'v' => (int)$eqNo, 'msg' => 'ไม่พบวุฒิการศึกษาที่เลือก'];
+}
+if ($potNo !== '') {
+    $fkChecks[] = ['t' => 'emp_position', 'k' => 'PotNo', 'v' => (int)$potNo, 'msg' => 'ไม่พบตำแหน่งที่เลือก'];
+}
+
+foreach ($fkChecks as $fk) {
     $st = $pdo->prepare("SELECT 1 FROM {$fk['t']} WHERE {$fk['k']} = :v");
     $st->execute([':v' => $fk['v']]);
     if (!$st->fetchColumn()) {
@@ -118,25 +136,24 @@ try {
         ]);
     }
 
-    // สร้าง DocID — รูปแบบ "YYYY-MM-DD/a" โดย a = ลำดับเอกสารของวันนี้
-    $today   = date('Y-m-d');
-    $cntStmt = $pdo->prepare(
-        "SELECT COUNT(*) FROM selft_rep WHERE DocID LIKE :prefix"
-    );
-    $cntStmt->execute([':prefix' => $today . '/%']);
-    $seq   = (int)$cntStmt->fetchColumn() + 1;
-    $docID = $today . '/' . $seq;
+    // สร้าง DocID ตามรูปแบบที่ตั้งไว้ในตาราง doc_running (ประเภท 'selft_rep')
+    // เลขลำดับคิดจากเลขสูงสุดที่มีอยู่จริงของรอบนั้น + 1 จึงไม่ข้ามเมื่อลบเอกสารท้ายสุดออก
+    $serverDate = date('Y-m-d');
+    $running    = nextDocRunning($pdo, 'selft_rep', $serverDate);
+    $docID      = $running['docid'];
 
     // INSERT selft_rep
     $rep = $pdo->prepare(
-        "INSERT INTO selft_rep (DocID, RDate, SDate, QNo, JNo, KNo, SexNo, EmpID, StID)
-         VALUES (:docid, :rdate, NOW(), :qno, :jno, :kno, :sex, :id, :stid)"
+        "INSERT INTO selft_rep (DocID, RDate, SDate, QNo, EqNo, JNo, PotNo, KNo, SexNo, EmpID, StID)
+         VALUES (:docid, :rdate, NOW(), :qno, :eqno, :jno, :potno, :kno, :sex, :id, :stid)"
     );
     $rep->execute([
         ':docid' => $docID,
         ':rdate' => $rDate,
         ':qno'   => (int)$qNo,
+        ':eqno'  => $eqNo !== '' ? (int)$eqNo : null,
         ':jno'   => (int)$jNo,
+        ':potno' => $potNo !== '' ? (int)$potNo : null,
         ':kno'   => (int)$kNo,
         ':sex'   => (int)$sexNo,
         ':id'    => $empID,
@@ -152,13 +169,14 @@ try {
         'data'    => ['DocNo' => $docNo, 'DocID' => $docID, 'EmpID' => $empID],
     ], JSON_UNESCAPED_UNICODE);
 
-} catch (PDOException $e) {
-    if ($pdo->inTransaction()) {
+} catch (Exception $e) {
+    if (isset($pdo) && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    http_response_code(500);
+    // ใช้ 422 เพื่อให้หน้าบ้านแยกแยะได้ว่าเป็น Business Logic Error ไม่ใช่ Server พัง
+    http_response_code(422);
     echo json_encode([
         'success' => false,
-        'message' => 'บันทึกไม่สำเร็จ: ' . $e->getMessage(),
+        'message' => $e->getMessage(),
     ], JSON_UNESCAPED_UNICODE);
 }

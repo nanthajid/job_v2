@@ -3,6 +3,7 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLoginApi();
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/doc_running_helper.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -15,6 +16,8 @@ $titles  = trim($_POST['Titles']  ?? '');
 $empName = trim($_POST['EmpName'] ?? '');
 $kNo     = trim($_POST['KNo']     ?? '');
 $qNo     = trim($_POST['QNo']     ?? '');
+$eqNo    = trim($_POST['EqNo']    ?? '');
+$potNo   = trim($_POST['PotNo']   ?? '');
 $sexNo   = trim($_POST['SexNo']   ?? '');
 $rDate   = trim($_POST['RDate']   ?? '');
 $phone   = trim($_POST['Phone']   ?? '');
@@ -38,6 +41,12 @@ if (!ctype_digit($kNo) || (int)$kNo <= 0) {
 }
 if (!ctype_digit($qNo) || (int)$qNo <= 0) {
     $errors[] = 'กรุณาเลือกสาเหตุที่ออกจากงาน';
+}
+if (!ctype_digit($eqNo) || (int)$eqNo <= 0) {
+    $errors[] = 'กรุณาเลือกวุฒิการศึกษา';
+}
+if (!ctype_digit($potNo) || (int)$potNo <= 0) {
+    $errors[] = 'กรุณาเลือกตำแหน่ง';
 }
 if (!ctype_digit($sexNo) || (int)$sexNo <= 0) {
     $errors[] = 'กรุณาเลือกเพศ';
@@ -76,6 +85,22 @@ $qCheck->execute([':q' => (int)$qNo]);
 if (!$qCheck->fetchColumn()) {
     http_response_code(422);
     echo json_encode(['success' => false, 'message' => 'ไม่พบสาเหตุที่เลือก'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+$eqCheck = $pdo->prepare("SELECT 1 FROM educational_qualification WHERE EqNo = :eq");
+$eqCheck->execute([':eq' => (int)$eqNo]);
+if (!$eqCheck->fetchColumn()) {
+    http_response_code(422);
+    echo json_encode(['success' => false, 'message' => 'ไม่พบวุฒิการศึกษาที่เลือก'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+$pCheck = $pdo->prepare("SELECT 1 FROM emp_position WHERE PotNo = :p");
+$pCheck->execute([':p' => (int)$potNo]);
+if (!$pCheck->fetchColumn()) {
+    http_response_code(422);
+    echo json_encode(['success' => false, 'message' => 'ไม่พบตำแหน่งที่เลือก'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -127,25 +152,24 @@ try {
         ]);
     }
 
-    // สร้าง DocID — รูปแบบ "YYYY-MM-DD/a" โดย a = ลำดับเอกสารของวันนี้
-    $today    = date('Y-m-d');
-    $cntStmt  = $pdo->prepare(
-        "SELECT COUNT(*) FROM register WHERE DocID LIKE :prefix"
-    );
-    $cntStmt->execute([':prefix' => $today . '/%']);
-    $seq      = (int)$cntStmt->fetchColumn() + 1;
-    $docID    = $today . '/' . $seq;
+    // สร้าง DocID ตามรูปแบบที่ตั้งไว้ในตาราง doc_running (ประเภท 'register')
+    // เลขลำดับคิดจากเลขสูงสุดที่มีอยู่จริงของรอบนั้น + 1 จึงไม่ข้ามเมื่อลบเอกสารท้ายสุดออก
+    $serverDate = date('Y-m-d');
+    $running    = nextDocRunning($pdo, 'register', $serverDate);
+    $docID      = $running['docid'];
 
     // INSERT register
     $reg = $pdo->prepare(
-        "INSERT INTO register (DocID, RDate, SDate, QNo, KNo, SexNo, EmpID, StID)
-         VALUES (:docid, :rdate, NOW(), :qno, :kno, :sex, :id, :stid)"
+        "INSERT INTO register (DocID, RDate, SDate, QNo, EqNo, PotNo, KNo, SexNo, EmpID, StID)
+         VALUES (:docid, :rdate, NOW(), :qno, :eqno, :potno, :kno, :sex, :id, :stid)"
     );
     $user = currentUser();
     $reg->execute([
         ':docid' => $docID,
         ':rdate' => $rDate,
         ':qno'   => (int)$qNo,
+        ':eqno'  => (int)$eqNo,
+        ':potno' => (int)$potNo,
         ':kno'   => (int)$kNo,
         ':sex'   => (int)$sexNo,
         ':id'    => $empID,
@@ -161,13 +185,14 @@ try {
         'data'    => ['DocNo' => $docNo, 'DocID' => $docID, 'EmpID' => $empID],
     ], JSON_UNESCAPED_UNICODE);
 
-} catch (PDOException $e) {
-    if ($pdo->inTransaction()) {
+} catch (Exception $e) {
+    if (isset($pdo) && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    http_response_code(500);
+    // ใช้ 422 เพื่อให้หน้าบ้านแยกแยะได้ว่าเป็น Business Logic Error ไม่ใช่ Server พัง
+    http_response_code(422);
     echo json_encode([
         'success' => false,
-        'message' => 'บันทึกข้อมูลไม่สำเร็จ: ' . $e->getMessage(),
+        'message' => $e->getMessage(),
     ], JSON_UNESCAPED_UNICODE);
 }
