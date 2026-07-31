@@ -258,7 +258,12 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
             <div class="empty-note">ไม่พบเอกสารในช่วงวันที่ที่เลือก</div>
           </div>
 
-        <?php elseif ($mode === 'summary'): ?>
+        <?php elseif ($mode === 'summary'):
+            // โหมดสรุปรวมหลายเอกสารไว้แผ่นเดียว จึงยึดผู้ส่ง/ผู้รับจากเอกสารฉบับแรกในช่วงที่กรอง
+            $firstDoc              = $docs[0];
+            $summaryOffice         = $firstDoc['OfficeName'] ?: ALIEN_INSURED_DEFAULT_OFFICE;
+            $summaryReceiverOffice = $firstDoc['ReceiverOffice'] ?: ALIEN_INSURED_DEFAULT_RECEIVER;
+        ?>
           <div class="report-paper">
             <div class="doc-header">
               <h1>สำนักงานจัดหางานกรุงเทพมหานครพื้นที่ 2</h1>
@@ -292,6 +297,23 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
                 <?php endforeach; ?>
               </tbody>
             </table>
+
+            <div class="signatures">
+              <div class="sign-col">
+                <div class="sign-block">
+                  <div class="line">ขอแสดงความนับถือ / ผู้ส่งมอบเอกสาร</div>
+                  <div class="line">(<?= htmlspecialchars($firstDoc['SenderName'] ?: '.....................................................') ?>)</div>
+                  <div class="line">ตำแหน่ง<?= htmlspecialchars($firstDoc['SenderPosition'] ?: '.....................................................') ?></div>
+                </div>
+                <div class="sign-office">เจ้าหน้าที่<?= htmlspecialchars($summaryOffice) ?></div>
+
+                <div class="sign-block">
+                  <div class="line">ผู้รับมอบเอกสาร</div>
+                  <div class="line">ลงชื่อ <?= htmlspecialchars($firstDoc['ReceiverName'] ?: '...................................................') ?></div>
+                  <div class="line">เจ้าหน้าที่<?= htmlspecialchars($summaryReceiverOffice) ?></div>
+                </div>
+              </div>
+            </div>
 
             <div class="doc-footer">
               <span>รวม <?= number_format($totalPersons) ?> รายชื่อ จากเอกสาร <?= number_format(count($docs)) ?> ฉบับ

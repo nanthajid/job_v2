@@ -112,6 +112,13 @@ $titleRows  = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")-
     .summary-chip { background: #eef4fb; color: var(--navy); border-radius: 99px; padding: .4rem .9rem; font-weight: 500; font-size: .9rem; }
     .summary-chip strong { color: var(--royal); }
 
+    /* ---------- ส่วนลงชื่อท้ายตาราง (อ้างอิงแบบฟอร์มใน al_data.md) ---------- */
+    .doc-signatures { display: flex; justify-content: flex-end; margin-top: 1.75rem; }
+    .doc-signatures .sign-col { width: 60%; color: var(--navy); }
+    .doc-signatures .sign-block { text-align: center; margin-bottom: 1.5rem; }
+    .doc-signatures .sign-block .line { margin: .3rem 0; }
+    .doc-signatures .sign-office { text-align: center; margin-top: -1.1rem; margin-bottom: 1.25rem; font-size: .9rem; color: var(--muted); }
+
     #docTable th { background: #f8fafc; color: var(--navy); font-weight: 600; white-space: nowrap; }
     #docTable td { vertical-align: middle; }
     .doc-persons { background: #f8fafc; }
@@ -155,6 +162,7 @@ $titleRows  = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")-
       .wizard-actions .right-group { width: 100%; order: 1; margin-left: 0; }
       .wizard-actions .prev-step { width: 100%; order: 2; }
       .review-list { grid-template-columns: 1fr; }
+      .doc-signatures .sign-col { width: 100%; }
       /* ตารางสรุปอ่านยากเมื่อถูกบีบ — ให้เลื่อนแนวนอนแทนการตัดคำ */
       #reviewPersons table { min-width: 620px; }
       #docTable .btn { min-height: 40px; }
@@ -322,6 +330,7 @@ $titleRows  = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")-
               </dl>
               <h6 class="text-navy font-weight-bold mb-2">รายชื่อผู้ประกันตน</h6>
               <div class="table-responsive" id="reviewPersons"></div>
+              <div id="reviewSignature"></div>
             </div>
             <div class="card-footer">
               <div class="wizard-actions">
@@ -364,7 +373,7 @@ $titleRows  = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")-
               <table class="table table-hover table-bordered" id="docTable">
                 <thead>
                   <tr>
-                    <th style="width:70px">เลขที่</th>
+                    <th style="width:70px">ลำดับที่</th>
                     <th style="width:170px">วันที่เอกสาร</th>
                     <th>สำนักงานผู้ส่ง</th>
                     <th>ผู้ส่งมอบเอกสาร</th>
@@ -605,6 +614,7 @@ function renderReview() {
         <td class="text-center">${p.IsResigned ? '<i class="fas fa-check text-success"></i>' : ''}</td>
         <td>${esc(p.Remark || '-')}</td></tr>`).join('')}</tbody>
     </table>`;
+  document.querySelector('#reviewSignature').innerHTML = signatureHtml(doc);
 }
 
 /* ---------- บันทึกร่างอัตโนมัติ ---------- */
@@ -733,7 +743,28 @@ function syncRangePrintLink(from, to) {
   document.querySelector('#rangePrintLink').href = 'alien_insured_report_print.php' + (qs ? '?' + qs : '');
 }
 
-function personRowsHtml(persons) {
+/** ส่วนลงชื่อท้ายตาราง — ช่องที่ยังไม่กรอกให้เป็นเส้นประไว้เซ็นด้วยมือ */
+const DOT_LINE = '...................................................';
+function signatureHtml(doc) {
+  return `<div class="doc-signatures">
+    <div class="sign-col">
+      <div class="sign-block">
+        <div class="line">ขอแสดงความนับถือ / ผู้ส่งมอบเอกสาร</div>
+        <div class="line">(${esc(doc.SenderName || DOT_LINE)})</div>
+        <div class="line">ตำแหน่ง${esc(doc.SenderPosition || DOT_LINE)}</div>
+      </div>
+      <div class="sign-office">เจ้าหน้าที่${esc(doc.OfficeName || '-')}</div>
+      <div class="sign-block">
+        <div class="line">ผู้รับมอบเอกสาร</div>
+        <div class="line">ลงชื่อ ${esc(doc.ReceiverName || DOT_LINE)}</div>
+        <div class="line">เจ้าหน้าที่${esc(doc.ReceiverOffice || '-')}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function personRowsHtml(doc) {
+  const persons = doc.persons || [];
   return `<table class="table table-sm table-bordered">
     <thead><tr><th style="width:60px">ลำดับ</th><th>ชื่อ-สกุลผู้ประกันตน</th><th style="width:180px">เลขที่บัตร (ปกส.)</th><th style="width:90px">เลิกจ้าง</th><th style="width:90px">ลาออก</th><th>หมายเหตุ</th></tr></thead>
     <tbody>${persons.map((p, i) => `<tr>
@@ -742,7 +773,8 @@ function personRowsHtml(persons) {
       <td>${esc(p.SsoCardNo || '-')}</td>
       <td class="text-center">${Number(p.IsTerminated) ? '<i class="fas fa-check text-success"></i>' : ''}</td>
       <td class="text-center">${Number(p.IsResigned) ? '<i class="fas fa-check text-success"></i>' : ''}</td>
-      <td>${esc(p.Remark || '-')}</td></tr>`).join('')}</tbody></table>`;
+      <td>${esc(p.Remark || '-')}</td></tr>`).join('')}</tbody></table>
+    ${signatureHtml(doc)}`;
 }
 
 function loadDocs() {
@@ -764,9 +796,9 @@ function loadDocs() {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">ไม่พบข้อมูล</td></tr>';
         return;
       }
-      tbody.innerHTML = docs.map(d => `
+      tbody.innerHTML = docs.map((d, i) => `
         <tr>
-          <td>${esc(d.DocID)}</td>
+          <td>${i + 1}</td>
           <td>${thaiDate(d.DocDate)}</td>
           <td>${esc(d.OfficeName || '-')}</td>
           <td>${esc(d.SenderName || '-')}</td>
@@ -779,7 +811,7 @@ function loadDocs() {
           </td>
         </tr>
         <tr class="doc-persons" id="persons-${esc(d.DocID)}" style="display:none">
-          <td colspan="6">${personRowsHtml(d.persons || [])}</td>
+          <td colspan="6">${personRowsHtml(d)}</td>
         </tr>`).join('');
     })
     .catch(() => {});
