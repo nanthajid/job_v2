@@ -49,6 +49,30 @@ if ($docs) {
     }
 }
 
+$senderTitleMap  = alienInsuredTitleMap($pdo);
+
+// เลือกผู้ส่งมอบเอกสารสำหรับใบที่จะพิมพ์ได้ — เว้นว่างไว้ = ใช้ตามที่บันทึกในเอกสาร
+$staffOptions    = alienInsuredStaffOptions($pdo);
+$positionOptions = alienInsuredPositionOptions($pdo);
+
+// รับเฉพาะค่าที่มีอยู่จริงในรายการ กัน URL แต่งชื่อมั่วขึ้นไปอยู่บนเอกสารราชการ
+$senderOverride = trim((string)($_GET['sender'] ?? ''));
+if (!in_array($senderOverride, array_column($staffOptions, 'DisplayName'), true)) {
+    $senderOverride = '';
+}
+$senderPosOverride = trim((string)($_GET['sender_pos'] ?? ''));
+if (!in_array($senderPosOverride, $positionOptions, true)) {
+    $senderPosOverride = '';
+}
+
+/** ชื่อ/ตำแหน่งที่จะพิมพ์ในบล็อกลงชื่อของเอกสารฉบับหนึ่ง */
+$signName = static function (array $doc) use ($senderOverride, $senderTitleMap): string {
+    return $senderOverride !== '' ? $senderOverride : alienInsuredWithTitle($doc['SenderName'] ?? '', $senderTitleMap);
+};
+$signPosition = static function (array $doc) use ($senderPosOverride): string {
+    return $senderPosOverride !== '' ? $senderPosOverride : trim((string)($doc['SenderPosition'] ?? ''));
+};
+
 $totalPersons    = count($allPersons);
 $totalTerminated = count(array_filter($allPersons, static fn($p) => (int)$p['IsTerminated'] === 1));
 $totalResigned   = count(array_filter($allPersons, static fn($p) => (int)$p['IsResigned'] === 1));
@@ -90,6 +114,8 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ttskch/select2-bootstrap4-theme@1.5.2/dist/select2-bootstrap4.min.css">
   <link rel="stylesheet" href="assets/css/custom.css">
 
   <style>
@@ -105,16 +131,42 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
     .main-header { border-bottom: 3px solid var(--gov-gold) !important; box-shadow: var(--gov-shadow); }
 
     .gov-card { background: var(--gov-white); border: 0; border-radius: 12px; box-shadow: var(--gov-shadow); margin-bottom: 1.5rem; overflow: hidden; }
-    .gov-card-header { border-bottom: 1px solid var(--gov-gray); padding: 1.25rem 1.5rem; }
-    .gov-card-title { font-size: 1.25rem; font-weight: 600; color: var(--gov-navy); margin: 0; }
+    /* หัวการ์ดพื้นกรมท่าคาดทอง โทนเดียวกับหน้าขึ้นทะเบียน (register.php) */
+    .gov-card-header { background: var(--gov-navy); border-bottom: 3px solid var(--gov-gold); padding: 1.15rem 1.5rem; display: flex; align-items: center; }
+    .gov-card-title { font-size: 1.15rem; font-weight: 600; color: #fff; margin: 0; }
     .gov-page-header { background: linear-gradient(135deg, var(--gov-navy) 0%, var(--gov-royal) 100%); padding: 2.5rem 0; margin-bottom: 2rem; color: #fff; box-shadow: var(--gov-shadow); }
     .gov-page-title { font-size: 2rem; font-weight: 600; }
-    .form-label { font-weight: 500; color: var(--gov-navy); margin-bottom: .5rem; }
-    .form-control { border-radius: 8px; padding: .6rem 1rem; }
+    .form-label { font-weight: 500; color: var(--gov-navy); margin-bottom: .5rem; display: block; }
+    .form-control { border: 1px solid var(--gov-border); border-radius: 8px; padding: .6rem 1rem; height: auto; transition: border-color .2s, box-shadow .2s; }
+    .form-control:focus { border-color: var(--gov-royal); box-shadow: 0 0 0 3px rgba(0, 94, 184, .15); }
     /* ความสูงคงที่ของ .form-control ตัดสระ/วรรณยุกต์ไทยในช่อง select */
     select.form-control { height: auto; line-height: 1.5; }
-    .filter-actions { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-end; margin-top: 1.25rem; }
-    .filter-actions .btn { border-radius: 8px; padding: .6rem 1.25rem; }
+    .input-group-text { background: #f8fafc; border: 1px solid var(--gov-border); color: var(--gov-navy); }
+    .input-group > .input-group-prepend > .input-group-text { border-radius: 8px 0 0 8px; }
+    .field-hint { color: var(--gov-text-muted); font-size: .85rem; margin-top: .4rem; }
+
+    /* หัวข้อย่อยในฟอร์ม — แบ่งกลุ่มให้กวาดตาอ่านง่าย */
+    .filter-section { display: flex; align-items: center; gap: .6rem; margin: 1.75rem 0 1.1rem; padding-bottom: .6rem; border-bottom: 2px solid var(--gov-gray); color: var(--gov-navy); font-family: 'Prompt', sans-serif; font-weight: 600; font-size: 1.02rem; }
+    .filter-section:first-child { margin-top: 0; }
+    .filter-section i { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; background: var(--gov-royal); color: #fff; border-radius: 8px; font-size: .85rem; flex-shrink: 0; }
+
+    .filter-actions { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-end; align-items: center; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--gov-gray); }
+    .filter-actions .btn { border-radius: 8px; padding: .65rem 1.5rem; font-weight: 600; }
+    .filter-actions .btn-secondary { background: transparent; color: var(--gov-text-muted); border: 1px solid var(--gov-border); font-weight: 500; }
+    .filter-actions .btn-secondary:hover { background: var(--gov-gray); color: var(--gov-text-dark); }
+    .btn-gov-primary { background: var(--gov-navy); border-color: var(--gov-navy); color: #fff; }
+    .btn-gov-primary:hover { background: var(--gov-royal); border-color: var(--gov-royal); color: #fff; }
+    .btn-gov-print { background: var(--gov-gold); border-color: var(--gov-gold); color: var(--gov-navy); }
+    .btn-gov-print:hover { background: #c19b2b; border-color: #c19b2b; color: var(--gov-navy); }
+
+    /* Select2 ให้เข้าชุดกับ .form-control */
+    .select2-container--bootstrap4 .select2-selection { border: 1px solid var(--gov-border); border-radius: 8px; min-height: calc(1.5em + 1.2rem + 2px); padding: .35rem .75rem; display: flex; align-items: center; }
+    .select2-container--bootstrap4 .select2-selection--single .select2-selection__rendered { padding-left: 0; line-height: 1.6; color: var(--gov-text-dark); }
+    .select2-container--bootstrap4 .select2-selection--single .select2-selection__arrow { height: 100%; top: 0; }
+    .select2-container--bootstrap4.select2-container--focus .select2-selection { border-color: var(--gov-royal); box-shadow: 0 0 0 3px rgba(0, 94, 184, .15); }
+    .select2-dropdown { border: 1px solid var(--gov-border); border-radius: 8px; box-shadow: var(--gov-shadow); }
+    .select2-results__option { padding: .65rem 1rem; }
+    .select2-container--bootstrap4 .select2-results__option--highlighted[aria-selected] { background: var(--gov-navy); }
 
     .summary-chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
     .summary-chip { background: #eef4fb; color: var(--gov-navy); border-radius: 99px; padding: .4rem .9rem; font-weight: 500; font-size: .9rem; }
@@ -169,6 +221,9 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
     @media (max-width: 768px) {
       .gov-page-title { font-size: 1.5rem; }
       .report-paper { padding: 1rem; }
+      .gov-card-body { padding: 1rem !important; }
+      .filter-actions { flex-direction: column-reverse; align-items: stretch; }
+      .filter-actions .btn { width: 100%; margin: 0 !important; min-height: 46px; }
     }
   </style>
 </head>
@@ -206,34 +261,77 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
       <div class="container-fluid px-lg-5">
 
         <div class="gov-card no-print">
-          <div class="gov-card-header"><h3 class="gov-card-title"><i class="fas fa-filter mr-2"></i> ตัวกรองข้อมูล</h3></div>
+          <div class="gov-card-header">
+            <i class="fas fa-filter fa-lg text-white mr-3"></i>
+            <h3 class="gov-card-title">ตัวกรองข้อมูล</h3>
+          </div>
           <div class="gov-card-body p-4">
             <form method="get" id="filterForm">
-              <div class="form-row align-items-end">
-                <div class="col-md-7 mb-3 mb-md-0">
-                  <label class="form-label">ช่วงวันที่ของเอกสาร</label>
+
+              <div class="filter-section"><i class="fas fa-calendar-days"></i>ช่วงข้อมูลที่ต้องการพิมพ์</div>
+              <div class="form-row">
+                <div class="col-md-3 mb-3">
+                  <label class="form-label" for="filterDateFrom">ตั้งแต่วันที่</label>
                   <div class="input-group">
-                    <div class="input-group-prepend"><span class="input-group-text bg-light border-right-0"><i class="far fa-calendar-alt"></i></span></div>
-                    <input type="text" id="filterDateFrom" name="from" class="form-control" placeholder="จากวันที่" value="<?= htmlspecialchars($dateFrom) ?>" readonly>
-                    <div class="input-group-prepend input-group-append"><span class="input-group-text bg-light border-left-0 border-right-0">ถึง</span></div>
-                    <input type="text" id="filterDateTo" name="to" class="form-control" placeholder="ถึงวันที่" value="<?= htmlspecialchars($dateTo) ?>" readonly>
+                    <div class="input-group-prepend"><span class="input-group-text"><i class="far fa-calendar-alt"></i></span></div>
+                    <input type="text" id="filterDateFrom" name="from" class="form-control" placeholder="เลือกวันที่" value="<?= htmlspecialchars($dateFrom) ?>" readonly>
                   </div>
                 </div>
-                <div class="col-md-5">
-                  <label class="form-label">รูปแบบการพิมพ์</label>
-                  <select name="mode" class="form-control">
+                <div class="col-md-3 mb-3">
+                  <label class="form-label" for="filterDateTo">ถึงวันที่</label>
+                  <div class="input-group">
+                    <div class="input-group-prepend"><span class="input-group-text"><i class="far fa-calendar-alt"></i></span></div>
+                    <input type="text" id="filterDateTo" name="to" class="form-control" placeholder="เลือกวันที่" value="<?= htmlspecialchars($dateTo) ?>" readonly>
+                  </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label" for="filterMode">รูปแบบการพิมพ์</label>
+                  <select name="mode" id="filterMode" class="form-control">
                     <option value="summary"<?= $mode === 'summary' ? ' selected' : '' ?>>บัญชีรายชื่อรวมทั้งช่วง</option>
                     <option value="forms"<?= $mode === 'forms' ? ' selected' : '' ?>>แบบฟอร์มแยกทีละฉบับ (ขึ้นหน้าใหม่ทุกฉบับ)</option>
                   </select>
+                  <div class="field-hint" id="modeHint"></div>
+                </div>
+              </div>
+
+              <div class="filter-section"><i class="fas fa-signature"></i>ผู้ลงนามในใบที่พิมพ์</div>
+              <div class="form-row">
+                <div class="col-md-7 mb-3">
+                  <label class="form-label" for="filterSender">ผู้ส่งมอบเอกสาร</label>
+                  <select name="sender" id="filterSender" class="form-control select2-field" data-placeholder="พิมพ์เพื่อค้นหาเจ้าหน้าที่">
+                    <option value="">— ใช้ชื่อตามที่บันทึกในเอกสาร —</option>
+                    <?php foreach ($staffOptions as $s): ?>
+                      <option value="<?= htmlspecialchars($s['DisplayName']) ?>"
+                              data-position="<?= htmlspecialchars($s['StPostName'] ?? '') ?>"
+                              <?= $senderOverride === $s['DisplayName'] ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($s['DisplayName']) ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                  <div class="field-hint">
+                    <i class="fas fa-circle-info mr-1"></i>เปลี่ยนชื่อผู้ลงนามเฉพาะใบที่พิมพ์ครั้งนี้ ไม่กระทบข้อมูลที่บันทึกไว้ในระบบ
+                  </div>
+                </div>
+                <div class="col-md-5 mb-3">
+                  <label class="form-label" for="filterSenderPos">ตำแหน่ง</label>
+                  <select name="sender_pos" id="filterSenderPos" class="form-control select2-field" data-placeholder="พิมพ์เพื่อค้นหาตำแหน่ง">
+                    <option value="">— ใช้ตำแหน่งตามที่บันทึกในเอกสาร —</option>
+                    <?php foreach ($positionOptions as $posName): ?>
+                      <option value="<?= htmlspecialchars($posName) ?>" <?= $senderPosOverride === $posName ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($posName) ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                  <div class="field-hint">เลือกเจ้าหน้าที่แล้วช่องนี้จะเติมให้อัตโนมัติ</div>
                 </div>
               </div>
 
               <div class="filter-actions">
-                <a href="alien_insured.php" class="btn btn-secondary">ย้อนกลับ</a>
-                <button type="submit" class="btn btn-primary shadow-sm" style="background:var(--gov-navy);border-color:var(--gov-navy);">
-                  <i class="fas fa-search mr-2"></i>แสดงข้อมูล
+                <a href="alien_insured.php" class="btn btn-secondary mr-auto"><i class="fas fa-arrow-left mr-2"></i>ย้อนกลับ</a>
+                <button type="submit" class="btn btn-gov-primary shadow-sm">
+                  <i class="fas fa-magnifying-glass mr-2"></i>แสดงข้อมูล
                 </button>
-                <button type="button" class="btn btn-success shadow-sm" onclick="window.print()">
+                <button type="button" class="btn btn-gov-print shadow-sm" onclick="window.print()"<?= $docs ? '' : ' disabled' ?>>
                   <i class="fas fa-print mr-2"></i>พิมพ์
                 </button>
               </div>
@@ -302,8 +400,8 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
               <div class="sign-col">
                 <div class="sign-block">
                   <div class="line">ขอแสดงความนับถือ / ผู้ส่งมอบเอกสาร</div>
-                  <div class="line">(<?= htmlspecialchars($firstDoc['SenderName'] ?: '.....................................................') ?>)</div>
-                  <div class="line">ตำแหน่ง<?= htmlspecialchars($firstDoc['SenderPosition'] ?: '.....................................................') ?></div>
+                  <div class="line">(<?= htmlspecialchars($signName($firstDoc) ?: '.....................................................') ?>)</div>
+                  <div class="line">ตำแหน่ง<?= htmlspecialchars($signPosition($firstDoc) ?: '.....................................................') ?></div>
                 </div>
                 <div class="sign-office">เจ้าหน้าที่<?= htmlspecialchars($summaryOffice) ?></div>
 
@@ -370,8 +468,8 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
                 <div class="sign-col">
                   <div class="sign-block">
                     <div class="line">ขอแสดงความนับถือ / ผู้ส่งมอบเอกสาร</div>
-                    <div class="line">(<?= htmlspecialchars($doc['SenderName'] ?: '.....................................................') ?>)</div>
-                    <div class="line">ตำแหน่ง<?= htmlspecialchars($doc['SenderPosition'] ?: '.....................................................') ?></div>
+                    <div class="line">(<?= htmlspecialchars($signName($doc) ?: '.....................................................') ?>)</div>
+                    <div class="line">ตำแหน่ง<?= htmlspecialchars($signPosition($doc) ?: '.....................................................') ?></div>
                   </div>
                   <div class="sign-office">เจ้าหน้าที่<?= htmlspecialchars($officeName) ?></div>
 
@@ -398,6 +496,7 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
   const thaiMonths = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
   function toThaiText(d) { return d ? `${d.getDate()} ${thaiMonths[d.getMonth()]} ${d.getFullYear() + 543}` : ''; }
@@ -409,6 +508,29 @@ $printedAt = (int)date('j') . ' ' . $thMonths[(int)date('n')] . ' ' . (date('Y')
       onValueUpdate: (d, s, i) => { i.altInput.value = toThaiText(d[0]); }
     });
   });
+
+  $('.select2-field').each(function () {
+    $(this).select2({ theme: 'bootstrap4', width: '100%', placeholder: $(this).data('placeholder'), language: { noResults: () => 'ไม่พบรายการที่ค้นหา' } });
+  });
+
+  // เลือกผู้ส่งมอบเอกสารแล้วเติมตำแหน่งของคนนั้นให้ ยังเลือกตำแหน่งอื่นเองได้
+  // ผูกด้วย jQuery เพราะ Select2 ยิง change ผ่าน jQuery — addEventListener จะไม่ได้ยิน
+  $('#filterSender').on('change', function () {
+    const pos = this.selectedOptions[0]?.dataset.position || '';
+    const $pos = $('#filterSenderPos');
+    if (this.value === '') $pos.val('').trigger('change.select2');
+    else if (pos && $pos.find('option').toArray().some(o => o.value === pos)) $pos.val(pos).trigger('change.select2');
+  });
+
+  // อธิบายผลของรูปแบบการพิมพ์ที่เลือกอยู่ ผู้ใช้จะได้รู้ว่ากดพิมพ์แล้วจะได้อะไร
+  const modeHints = {
+    summary: 'ได้ 1 แผ่น รวมรายชื่อทุกฉบับในช่วงที่เลือก เหมาะกับการตรวจสอบ',
+    forms: 'ได้แบบฟอร์มแยกตามจำนวนเอกสาร แต่ละฉบับขึ้นหน้าใหม่ เหมาะกับการยื่นจริง'
+  };
+  const modeSelect = document.querySelector('#filterMode');
+  const showModeHint = () => { document.querySelector('#modeHint').textContent = modeHints[modeSelect.value] || ''; };
+  modeSelect.addEventListener('change', showModeHint);
+  showModeHint();
 </script>
 </body>
 </html>

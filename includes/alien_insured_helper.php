@@ -5,6 +5,83 @@
 const ALIEN_INSURED_DEFAULT_OFFICE   = 'สำนักงานจัดหางานกรุงเทพมหานครเขตพื้นที่ 2';
 const ALIEN_INSURED_DEFAULT_RECEIVER = 'สำนักงานประกันสังคมเขตพื้นที่ 7';
 
+/** ผู้ส่งมอบเอกสารประจำตามแบบฟอร์ม — ตั้งเป็นค่าเริ่มต้นให้ทุกคนที่เข้ามากรอก (เปลี่ยนในฟอร์มได้) */
+const ALIEN_INSURED_DEFAULT_SENDER     = 'กิติยากรณ์ วงศ์ทอง';
+const ALIEN_INSURED_DEFAULT_SENDER_POS = 'เจ้าพนักงานแรงงาน';
+
+/**
+ * ตารางเทียบ "ชื่อ-สกุลในตาราง staff" => "คำนำหน้า + ชื่อ-สกุล"
+ * ใช้เติมคำนำหน้าให้เอกสารที่บันทึกไว้ก่อนระบบจะเก็บคำนำหน้ามาด้วย
+ * ข้ามระเบียนที่พิมพ์คำนำหน้าไว้ในช่องชื่ออยู่แล้ว จะได้ไม่ซ้ำซ้อน
+ */
+function alienInsuredTitleMap(PDO $pdo): array
+{
+    $rows = $pdo->query(
+        "SELECT s.StName, t.Title FROM staff s LEFT JOIN titles t ON t.TitleNo = s.TitleNo"
+    )->fetchAll(PDO::FETCH_ASSOC);
+
+    $map = [];
+    foreach ($rows as $r) {
+        $name  = trim((string)$r['StName']);
+        $title = trim((string)($r['Title'] ?? ''));
+        if ($name === '' || $title === '' || mb_strpos($name, $title) === 0) continue;
+        $map[$name] = $title . $name;
+    }
+    return $map;
+}
+
+/** ชื่อที่ยังไม่มีคำนำหน้าให้เติมให้ ส่วนชื่อที่มีอยู่แล้ว/ไม่รู้จักคืนค่าเดิม */
+function alienInsuredWithTitle(?string $name, array $titleMap): string
+{
+    $name = trim((string)$name);
+    return $titleMap[$name] ?? $name;
+}
+
+/**
+ * ตัวเลือกผู้ส่งมอบเอกสาร: ชื่อพร้อมคำนำหน้า (DisplayName) และตำแหน่งของแต่ละคน
+ * ใช้ร่วมกันระหว่างหน้ากรอกฟอร์มและหน้าพิมพ์รายงาน จะได้ไม่หลุดจากกัน
+ */
+function alienInsuredStaffOptions(PDO $pdo): array
+{
+    $rows = $pdo->query(
+        "SELECT s.StID, s.StName, t.Title, p.StPostName
+         FROM staff s
+         LEFT JOIN titles t ON t.TitleNo = s.TitleNo
+         LEFT JOIN position p ON p.StPost = s.StPost
+         ORDER BY s.StName"
+    )->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($rows as &$r) {
+        $name  = trim((string)$r['StName']);
+        $title = trim((string)($r['Title'] ?? ''));
+        // บางระเบียนพิมพ์คำนำหน้าไว้ในช่องชื่อแล้ว จึงต้องกันไม่ให้ซ้ำซ้อน
+        $r['DisplayName'] = ($title === '' || mb_strpos($name, $title) === 0) ? $name : $title . $name;
+    }
+    unset($r);
+
+    // ค่าเริ่มต้นต้องมีให้เลือกเสมอ แม้ระเบียนจะถูกลบไปแล้ว
+    if (!in_array(ALIEN_INSURED_DEFAULT_SENDER, array_column($rows, 'StName'), true)) {
+        array_unshift($rows, [
+            'StID'        => '',
+            'StName'      => ALIEN_INSURED_DEFAULT_SENDER,
+            'DisplayName' => ALIEN_INSURED_DEFAULT_SENDER,
+            'StPostName'  => ALIEN_INSURED_DEFAULT_SENDER_POS,
+        ]);
+    }
+    return $rows;
+}
+
+/** ชื่อตำแหน่งทั้งหมดแบบไม่ซ้ำ (ตาราง position มีชื่อเดียวกันหลายรหัสตามสังกัด) */
+function alienInsuredPositionOptions(PDO $pdo): array
+{
+    $names = $pdo->query("SELECT DISTINCT StPostName FROM position WHERE StPostName <> '' ORDER BY StPostName")
+                 ->fetchAll(PDO::FETCH_COLUMN);
+    if (!in_array(ALIEN_INSURED_DEFAULT_SENDER_POS, $names, true)) {
+        array_unshift($names, ALIEN_INSURED_DEFAULT_SENDER_POS);
+    }
+    return $names;
+}
+
 /**
  * ตรวจสอบและจัดรูปแบบรายชื่อผู้ประกันตนจาก $_POST['persons']
  * @throws InvalidArgumentException เมื่อข้อมูลไม่ครบถ้วน

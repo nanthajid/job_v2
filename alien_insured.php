@@ -7,6 +7,16 @@ require_once __DIR__ . '/includes/alien_insured_helper.php';
 $user       = currentUser();
 $pdo        = getDB();
 $titleRows  = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")->fetchAll();
+
+// ตัวเลือกผู้ส่งมอบเอกสาร — พ่วงตำแหน่งของแต่ละคนไว้เติมช่องตำแหน่งอัตโนมัติ
+$staffRows    = alienInsuredStaffOptions($pdo);
+$positionRows = alienInsuredPositionOptions($pdo);
+
+// ชื่อพร้อมคำนำหน้าของค่าเริ่มต้น ใช้บอกผู้ใช้ในข้อความใต้ช่อง
+$defaultSenderLabel = ALIEN_INSURED_DEFAULT_SENDER;
+foreach ($staffRows as $s) {
+    if ($s['StName'] === ALIEN_INSURED_DEFAULT_SENDER) { $defaultSenderLabel = $s['DisplayName']; break; }
+}
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -22,6 +32,9 @@ $titleRows  = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")-
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ttskch/select2-bootstrap4-theme@1.5.2/dist/select2-bootstrap4.min.css">
   <link rel="stylesheet" href="assets/css/custom.css">
 
   <style>
@@ -43,8 +56,15 @@ $titleRows  = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")-
     .content-wrapper { background: var(--bg); padding-bottom: 3rem; }
     .page-head { background: linear-gradient(135deg, var(--navy), var(--royal)); color: #fff; padding: 2.5rem 0; margin-bottom: 1.5rem; box-shadow: var(--shadow); }
     .page-head h1 { font-size: 2rem; font-weight: 600; }
+    .page-head .page-subtitle { opacity: .9; font-weight: 300; margin: 0; }
+    .page-head .page-icon { opacity: .2; }
     .card { border: 0; border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 1.5rem; overflow: hidden; }
-    .card-header { background: #fff; color: var(--navy); border-bottom: 1px solid var(--gray); padding: 1.25rem 1.5rem; font-weight: 600; }
+    /* หัวการ์ดพื้นกรมท่าคาดทอง — โทนเดียวกับหน้าขึ้นทะเบียน (register.php) */
+    .card-header { background: var(--navy); color: #fff; border-bottom: 3px solid var(--gold); padding: 1.15rem 1.5rem; font-weight: 600; font-size: 1.1rem; font-family: 'Prompt', 'Sarabun', sans-serif; }
+    .card-header .btn-outline-dark, .card-header .btn-outline-secondary { color: #fff; border-color: rgba(255, 255, 255, .55); }
+    .card-header .btn-primary { background: #fff; border-color: #fff; color: var(--navy); font-weight: 600; }
+    .card-header .btn-outline-dark:hover, .card-header .btn-outline-secondary:hover,
+    .card-header .btn-primary:hover { background: var(--gold); border-color: var(--gold); color: var(--navy); }
     .card-footer { background: #fff; border-top: 1px solid var(--gray); padding: 1rem 1.5rem; }
     .form-label, label { font-weight: 500; color: var(--navy); margin-bottom: .5rem; }
     .form-control { border: 1px solid var(--border); border-radius: 8px; padding: .6rem 1rem; }
@@ -56,6 +76,19 @@ $titleRows  = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")-
     .required { color: #dc3545; }
     .small-help { color: var(--muted); font-size: .95rem; }
     .field-hint { color: var(--muted); font-size: .85rem; margin-top: .3rem; }
+
+    /* ---------- Select2 ให้เข้าชุดกับ .form-control ---------- */
+    .select2-container--bootstrap4 .select2-selection { border: 1px solid var(--border); border-radius: 8px; min-height: calc(1.5em + 1.2rem + 2px); padding: .35rem .75rem; display: flex; align-items: center; }
+    .select2-container--bootstrap4 .select2-selection--single .select2-selection__rendered { padding-left: 0; line-height: 1.6; color: #1A1A1A; }
+    .select2-container--bootstrap4 .select2-selection--single .select2-selection__arrow { height: 100%; top: 0; }
+    .select2-container--bootstrap4.select2-container--focus .select2-selection { border-color: var(--royal); box-shadow: 0 0 0 3px rgba(0, 94, 184, .15); }
+    .select2-dropdown { border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); z-index: 1060; }
+    .select2-results__option { padding: .65rem 1rem; }
+    .select2-container--bootstrap4 .select2-results__option--highlighted[aria-selected] { background: var(--navy); }
+    .swal2-popup { font-family: 'IBM Plex Sans Thai', 'Sarabun', sans-serif; border-radius: 14px; }
+    .swal2-title, .swal2-styled { font-family: 'Prompt', 'Sarabun', sans-serif; }
+    .swal2-styled.swal2-confirm { background: var(--royal) !important; border-radius: 8px !important; }
+    .swal2-styled.swal2-cancel { border-radius: 8px !important; }
 
     /* ---------- ตัวบอกขั้นตอน ---------- */
     .wizard-head { background: #fff; border-radius: 12px; box-shadow: var(--shadow); padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; }
@@ -124,6 +157,13 @@ $titleRows  = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")-
     .doc-persons { background: #f8fafc; }
     .doc-persons table { margin-bottom: 0; background: #fff; }
     .badge-count { background: var(--royal); color: #fff; font-size: .85rem; padding: .35rem .6rem; border-radius: 6px; }
+    /* สถานะว่าง/กำลังโหลด — บอกผู้ใช้ว่าทำอะไรต่อได้ ไม่ปล่อยตารางเปล่า */
+    .table-state { text-align: center; color: var(--muted); padding: 2.5rem 1rem; }
+    .table-state i { font-size: 2.25rem; color: var(--border); display: block; margin-bottom: .75rem; }
+    .table-state strong { display: block; color: var(--navy); font-weight: 600; margin-bottom: .25rem; }
+    .row-count-badge { background: rgba(255, 255, 255, .18); border: 1px solid rgba(255, 255, 255, .35); color: #fff; font-size: .85rem; font-weight: 500; padding: .25rem .7rem; border-radius: 99px; }
+    .doc-actions .btn { margin-left: .2rem; }
+    .doc-actions .act-text { display: none; }   /* จอใหญ่ใช้ไอคอน + tooltip ก็พอ */
 
     /* ---------- มือถือ ---------- */
     @media (max-width: 767.98px) {
@@ -163,6 +203,10 @@ $titleRows  = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")-
       .wizard-actions .prev-step { width: 100%; order: 2; }
       .review-list { grid-template-columns: 1fr; }
       .doc-signatures .sign-col { width: 100%; }
+      /* จอเล็กแตะไอคอนเปล่ายาก — ใส่ข้อความกำกับปุ่มในตารางเอกสาร */
+      .doc-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+      .doc-actions .btn { flex: 1 1 45%; margin-left: 0; }
+      .doc-actions .act-text { display: inline; margin-left: .35rem; }
       /* ตารางสรุปอ่านยากเมื่อถูกบีบ — ให้เลื่อนแนวนอนแทนการตัดคำ */
       #reviewPersons table { min-width: 620px; }
       #docTable .btn { min-height: 40px; }
@@ -187,8 +231,15 @@ $titleRows  = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")-
   <div class="content-wrapper">
     <div class="page-head">
       <div class="container-fluid px-lg-5">
-        <h1 class="h3 mb-1">ขึ้นทะเบียนผู้ประกันตนแรงงานต่างด้าว</h1>
-        <div>กรอกข้อมูลทีละขั้นตอน ระบบบันทึกร่างให้อัตโนมัติ ไม่ต้องกรอกใหม่หากออกจากหน้านี้</div>
+        <div class="row align-items-center">
+          <div class="col-md-9">
+            <h1 class="h3 mb-1">ขึ้นทะเบียนผู้ประกันตนแรงงานต่างด้าว</h1>
+            <p class="page-subtitle">กรอกข้อมูลทีละขั้นตอน ระบบบันทึกร่างให้อัตโนมัติ ไม่ต้องกรอกใหม่หากออกจากหน้านี้</p>
+          </div>
+          <div class="col-md-3 text-md-right d-none d-md-block">
+            <i class="fas fa-passport fa-4x page-icon"></i>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -238,6 +289,7 @@ $titleRows  = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")-
                 <div class="form-group col-md-8">
                   <label>สำนักงานผู้ส่ง <span class="required">*</span></label>
                   <input name="OfficeName" class="form-control" value="<?= htmlspecialchars(ALIEN_INSURED_DEFAULT_OFFICE) ?>">
+                  <div class="field-hint">ชื่อนี้จะไปแสดงใต้ลายเซ็นผู้ส่งมอบเอกสารในแบบฟอร์ม</div>
                 </div>
               </div>
 
@@ -245,11 +297,29 @@ $titleRows  = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")-
               <div class="form-row">
                 <div class="form-group col-md-6">
                   <label>ชื่อผู้ส่งมอบเอกสาร</label>
-                  <input name="SenderName" class="form-control" value="<?= htmlspecialchars($user['StName'] ?? '') ?>">
+                  <select name="SenderName" class="form-control select2-field" data-placeholder="เลือกหรือพิมพ์เพื่อค้นหาเจ้าหน้าที่">
+                    <option value="">-- เลือกเจ้าหน้าที่ --</option>
+                    <?php foreach ($staffRows as $s): ?>
+                      <option value="<?= htmlspecialchars($s['DisplayName']) ?>"
+                              data-position="<?= htmlspecialchars($s['StPostName'] ?? '') ?>"
+                              <?= ALIEN_INSURED_DEFAULT_SENDER === $s['StName'] ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($s['DisplayName']) ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                  <div class="field-hint">ตั้งค่าเริ่มต้นเป็น <?= htmlspecialchars($defaultSenderLabel) ?> · เลือกคนอื่นแล้วตำแหน่งจะเติมให้อัตโนมัติ</div>
                 </div>
                 <div class="form-group col-md-6">
                   <label>ตำแหน่ง</label>
-                  <input name="SenderPosition" class="form-control" value="<?= htmlspecialchars($user['StPostName'] ?? '') ?>" placeholder="เช่น เจ้าพนักงานแรงงาน">
+                  <select name="SenderPosition" class="form-control select2-field" data-placeholder="เลือกหรือพิมพ์เพื่อค้นหาตำแหน่ง">
+                    <option value="">-- เลือกตำแหน่ง --</option>
+                    <?php foreach ($positionRows as $posName): ?>
+                      <option value="<?= htmlspecialchars($posName) ?>"
+                              <?= ALIEN_INSURED_DEFAULT_SENDER_POS === $posName ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($posName) ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
                 </div>
               </div>
 
@@ -262,10 +332,11 @@ $titleRows  = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")-
                 <div class="form-group col-md-6">
                   <label>ชื่อผู้รับมอบเอกสาร</label>
                   <input name="ReceiverName" class="form-control" placeholder="เว้นว่างได้ หากลงชื่อในเอกสาร">
+                  <div class="field-hint">เว้นว่างไว้ ระบบจะพิมพ์เป็นเส้นประให้เซ็นด้วยมือ</div>
                 </div>
                 <div class="form-group col-12">
                   <label>หมายเหตุของเอกสาร</label>
-                  <input name="Remark" class="form-control">
+                  <input name="Remark" class="form-control" placeholder="ไม่บังคับ · เช่น ส่งแทนรอบวันที่ 10">
                 </div>
               </div>
             </div>
@@ -283,6 +354,7 @@ $titleRows  = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")-
           <div class="card step-panel" data-step="1">
             <div class="card-header d-flex align-items-center flex-wrap" style="gap:.5rem">
               <span><i class="fas fa-users mr-2"></i>ขั้นตอนที่ 2 · รายชื่อผู้ประกันตน</span>
+              <span class="row-count-badge" id="personCountBadge">0 รายชื่อ</span>
               <button type="button" id="addPerson" class="btn btn-primary btn-sm ml-auto"><i class="fas fa-plus mr-1"></i>เพิ่มรายชื่อ</button>
             </div>
             <div class="card-body">
@@ -304,7 +376,7 @@ $titleRows  = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")-
                   <tbody id="personRows"></tbody>
                 </table>
               </div>
-              <div class="small-help mt-3"><i class="fas fa-circle-info mr-1"></i>กรอกอย่างน้อย 1 รายชื่อ · เลขที่บัตร (ปกส.) เป็นตัวเลข 10-20 หลัก · แถวที่ปล่อยว่างจะไม่ถูกบันทึก</div>
+              <div class="small-help mt-3"><i class="fas fa-circle-info mr-1"></i>กรอกอย่างน้อย 1 รายชื่อ · เลขที่บัตร (ปกส.) เป็นตัวเลข 10-20 หลัก · แถวที่ปล่อยว่างจะไม่ถูกบันทึก · กด <kbd>Enter</kbd> ในช่องหมายเหตุเพื่อเพิ่มแถวถัดไป</div>
             </div>
             <div class="card-footer">
               <div class="wizard-actions">
@@ -397,6 +469,8 @@ $titleRows  = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")-
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
 const titles = <?= json_encode(array_column($titleRows, 'Title'), JSON_UNESCAPED_UNICODE) ?>;
 const thaiMonths = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
@@ -406,8 +480,39 @@ const DRAFT_KEY = 'alien_insured_draft_v1';
 
 const form = document.querySelector('#alienForm');
 const panels = [...document.querySelectorAll('.step-panel')];
+const senderSelect = form.querySelector('[name="SenderName"]');
+const positionSelect = form.querySelector('[name="SenderPosition"]');
 let currentStep = 0;
 let personIndex = 0;
+
+/* ---------- แจ้งเตือน ---------- */
+const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, timerProgressBar: true });
+const alertError = (text, title = 'เกิดข้อผิดพลาด') => Swal.fire({ icon: 'error', title, text, confirmButtonText: 'ตกลง' });
+/** กล่องยืนยันก่อนทำสิ่งที่ย้อนกลับไม่ได้ */
+function confirmAction({ title, text, confirmText, icon = 'warning' }) {
+  return Swal.fire({
+    icon, title, text,
+    showCancelButton: true,
+    confirmButtonText: confirmText,
+    cancelButtonText: 'ยกเลิก',
+    reverseButtons: true,
+    focusCancel: true
+  }).then(r => r.isConfirmed);
+}
+
+/* ---------- ช่องเลือกแบบค้นหาได้ ---------- */
+$('.select2-field').each(function () {
+  $(this).select2({ theme: 'bootstrap4', width: '100%', placeholder: $(this).data('placeholder'), language: { noResults: () => 'ไม่พบรายการที่ค้นหา' } });
+});
+// ใช้ jQuery ผูก event เพราะ Select2 ยิง change ผ่าน jQuery — ตัวรับแบบ addEventListener จะไม่ได้ยิน
+$('.select2-field').on('change', function () {
+  // เลือกเจ้าหน้าที่แล้วเติมตำแหน่งของคนนั้นให้ทันที ยังเปลี่ยนเป็นตำแหน่งอื่นเองได้
+  if (this === senderSelect) {
+    const pos = senderSelect.selectedOptions[0]?.dataset.position || '';
+    if (pos) setFieldValue(positionSelect, pos);
+  }
+  saveDraft();
+});
 
 function esc(s) { return String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 function toThaiText(date) { return date ? `${date.getDate()} ${thaiMonths[date.getMonth()]} ${date.getFullYear() + 543}` : ''; }
@@ -452,19 +557,40 @@ function addPersonRow(data = {}, focus = false) {
 }
 
 function renumberRows() {
-  document.querySelectorAll('#personRows .person-row').forEach((tr, idx) => {
-    tr.querySelector('.seq-cell').textContent = idx + 1;
-  });
+  const rows = document.querySelectorAll('#personRows .person-row');
+  rows.forEach((tr, idx) => { tr.querySelector('.seq-cell').textContent = idx + 1; });
+  updatePersonCount();
+}
+
+/** ตัวเลขบนหัวการ์ด — นับเฉพาะแถวที่กรอกแล้ว ให้ตรงกับจำนวนที่จะถูกบันทึกจริง */
+function updatePersonCount() {
+  const filled = filledPersons(readForm().persons).length;
+  document.querySelector('#personCountBadge').textContent = `${filled} รายชื่อ`;
 }
 
 document.querySelector('#addPerson').onclick = () => addPersonRow({}, true);
+document.querySelector('#personRows').addEventListener('input', updatePersonCount);
+// กด Enter ในช่องหมายเหตุ = ขึ้นแถวใหม่ กรอกรวดเดียวไม่ต้องละมือไปกดปุ่ม
+document.querySelector('#personRows').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || !e.target.classList.contains('person-remark')) return;
+  e.preventDefault();
+  const rows = [...document.querySelectorAll('#personRows .person-row')];
+  const isLast = e.target.closest('tr') === rows[rows.length - 1];
+  if (isLast) addPersonRow({}, true);
+  else rows[rows.indexOf(e.target.closest('tr')) + 1].querySelector('.person-name').focus();
+});
 document.querySelector('#personRows').addEventListener('click', e => {
   if (!e.target.closest('.remove-person')) return;
+  const tr = e.target.closest('tr');
+  // แถวสุดท้ายลบทิ้งไม่ได้ (ต้องเหลืออย่างน้อย 1 แถวไว้กรอก) — ล้างค่าในแถวแทนการเตือน
   if (document.querySelectorAll('#personRows .person-row').length <= 1) {
-    showStepAlert(1, 'ต้องมีรายชื่ออย่างน้อย 1 รายการ');
-    return;
+    tr.querySelectorAll('input').forEach(el => { if (el.type === 'checkbox') el.checked = false; else el.value = ''; });
+    tr.querySelector('select').value = '';
+    tr.classList.remove('row-invalid');
+    tr.querySelector('.person-name').focus();
+  } else {
+    tr.remove();
   }
-  e.target.closest('tr').remove();
   renumberRows();
   saveDraft();
 });
@@ -656,12 +782,35 @@ function offerDraft() {
 }
 
 /* ---------- เติม / ล้างฟอร์ม ---------- */
+/** เอกสารเก่าอาจอ้างชื่อ/ตำแหน่งที่ไม่มีใน dropdown แล้ว (เจ้าหน้าที่ย้าย หรือตำแหน่งถูกลบ)
+ *  จึงเติมเป็นตัวเลือกชั่วคราวไว้ก่อน มิฉะนั้น select จะรีเซ็ตเป็นค่าว่างเงียบๆ */
+function setFieldValue(el, value) {
+  let v = value ?? '';
+  if (el.tagName === 'SELECT') {
+    el.querySelectorAll('option[data-fallback]').forEach(o => o.remove());
+    if (v !== '' && ![...el.options].some(o => o.value === v)) {
+      // เอกสารที่บันทึกก่อนเพิ่มคำนำหน้าจะเก็บชื่อเปล่าไว้ — จับคู่กับตัวเลือกที่ลงท้ายด้วยชื่อเดียวกัน
+      const loose = [...el.options].find(o => o.value.endsWith(v));
+      if (loose) {
+        v = loose.value;
+      } else {
+        const opt = new Option(v + ' (ไม่มีในรายการปัจจุบัน)', v);
+        opt.dataset.fallback = '1';
+        el.add(opt);
+      }
+    }
+  }
+  el.value = v;
+  // Select2 วาดจากค่าใน DOM ต้องสั่งให้รีเฟรช (namespace .select2 = อัปเดตหน้าตาอย่างเดียว ไม่ยิง handler ซ้ำ)
+  if (el.classList.contains('select2-field')) $(el).trigger('change.select2');
+}
+
 function fillForm(doc, persons, docId) {
   document.querySelector('#DocID').value = docId || '';
   docDatePicker.setDate(doc.DocDate || new Date(), true);
   docFields.filter(f => f !== 'DocDate').forEach(f => {
     const el = form.querySelector(`[name="${f}"]`);
-    if (el) el.value = doc[f] ?? '';
+    if (el) setFieldValue(el, doc[f]);
   });
   document.querySelector('#personRows').innerHTML = '';
   personIndex = 0;
@@ -684,12 +833,21 @@ function resetForm() {
   personIndex = 0;
   addPersonRow();
   docDatePicker.setDate(new Date(), true);
+  $('.select2-field').trigger('change.select2');   // form.reset() คืนค่าเดิมให้ <select> แต่ Select2 ต้องสั่งรีเฟรชเอง
   panels.forEach((p, i) => clearStepAlert(i));
   clearDraft();
   showStep(0);
 }
-document.querySelector('#resetForm').onclick = () => {
-  if (confirm('ล้างข้อมูลที่กรอกไว้ทั้งหมดหรือไม่')) resetForm();
+document.querySelector('#resetForm').onclick = async () => {
+  const ok = await confirmAction({
+    title: 'ล้างข้อมูลทั้งหมด?',
+    text: 'ข้อมูลที่กรอกไว้ในฟอร์มนี้จะหายไป และร่างที่บันทึกอัตโนมัติจะถูกลบด้วย',
+    confirmText: 'ล้างข้อมูล'
+  });
+  if (ok) {
+    resetForm();
+    Toast.fire({ icon: 'success', title: 'ล้างข้อมูลเรียบร้อย' });
+  }
 };
 document.querySelector('#cancelEdit').onclick = () => resetForm();
 
@@ -703,11 +861,22 @@ form.addEventListener('submit', async e => {
   button.disabled = true;
   button.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>กำลังบันทึก...';
   try {
-    const isEdit = !!document.querySelector('#DocID').value;
+    const editingId = document.querySelector('#DocID').value;
+    const isEdit = !!editingId;
     const res = await fetch(isEdit ? 'api/alien_insured_update.php' : 'api/alien_insured_save.php', { method: 'POST', body: new FormData(form) });
     const result = await res.json();
     if (!result.success) throw new Error(result.message || 'บันทึกข้อมูลไม่สำเร็จ');
-    alert(result.message);
+    const savedId = result.DocID || editingId;   // API แก้ไขไม่ส่ง DocID กลับมา ใช้เลขที่กำลังแก้ไขแทน
+    await Swal.fire({
+      icon: 'success',
+      title: isEdit ? 'บันทึกการแก้ไขแล้ว' : 'บันทึกเอกสารเรียบร้อย',
+      text: result.message,
+      showDenyButton: !!savedId,
+      denyButtonText: 'พิมพ์แบบฟอร์ม',
+      confirmButtonText: 'เสร็จสิ้น'
+    }).then(r => {
+      if (r.isDenied && savedId) window.open('alien_insured_print.php?id=' + encodeURIComponent(savedId), '_blank', 'noopener');
+    });
     resetForm();
     loadDocs();
   } catch (err) {
@@ -787,13 +956,20 @@ function loadDocs() {
   if (to) params.set('to', to);
   syncRangePrintLink(from, to);
 
+  const tbody = document.querySelector('#docTable tbody');
+  const state = (icon, title, detail) =>
+    `<tr><td colspan="6"><div class="table-state"><i class="fas ${icon}"></i><strong>${esc(title)}</strong>${esc(detail)}</div></td></tr>`;
+  tbody.innerHTML = state('fa-spinner fa-spin', 'กำลังโหลดข้อมูล', 'กรุณารอสักครู่');
+
   fetch('api/alien_insured_list.php?' + params.toString())
     .then(r => r.json())
     .then(res => {
       const docs = res.data || [];
-      const tbody = document.querySelector('#docTable tbody');
+      const filtering = !!(q || from || to);
       if (!docs.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">ไม่พบข้อมูล</td></tr>';
+        tbody.innerHTML = filtering
+          ? state('fa-magnifying-glass', 'ไม่พบเอกสารที่ตรงกับตัวกรอง', 'ลองแก้คำค้นหรือกดปุ่ม "ล้างตัวกรอง"')
+          : state('fa-folder-open', 'ยังไม่มีเอกสารที่บันทึกไว้', 'กรอกแบบฟอร์มด้านบนเพื่อบันทึกเอกสารฉบับแรก');
         return;
       }
       tbody.innerHTML = docs.map((d, i) => `
@@ -803,18 +979,20 @@ function loadDocs() {
           <td>${esc(d.OfficeName || '-')}</td>
           <td>${esc(d.SenderName || '-')}</td>
           <td><span class="badge-count">${d.PersonCount || 0} คน</span></td>
-          <td class="text-right">
-            <button class="btn btn-outline-secondary btn-sm toggle-persons" data-id="${esc(d.DocID)}" title="ดูรายชื่อ"><i class="fas fa-list"></i></button>
-            <a class="btn btn-outline-dark btn-sm" href="alien_insured_print.php?id=${encodeURIComponent(d.DocID)}" target="_blank" rel="noopener" title="พิมพ์แบบฟอร์ม"><i class="fas fa-print"></i></a>
-            <button class="btn btn-outline-primary btn-sm edit-doc" data-id="${esc(d.DocID)}" title="แก้ไข"><i class="fas fa-pen"></i></button>
-            <button class="btn btn-outline-danger btn-sm delete-doc" data-id="${esc(d.DocID)}" title="ลบ"><i class="fas fa-trash"></i></button>
+          <td class="text-right doc-actions">
+            <button class="btn btn-outline-secondary btn-sm toggle-persons" data-id="${esc(d.DocID)}" title="ดูรายชื่อ" aria-label="ดูรายชื่อ"><i class="fas fa-list"></i><span class="act-text">ดูรายชื่อ</span></button>
+            <a class="btn btn-outline-dark btn-sm" href="alien_insured_print.php?id=${encodeURIComponent(d.DocID)}" target="_blank" rel="noopener" title="พิมพ์แบบฟอร์ม" aria-label="พิมพ์แบบฟอร์ม"><i class="fas fa-print"></i><span class="act-text">พิมพ์</span></a>
+            <button class="btn btn-outline-primary btn-sm edit-doc" data-id="${esc(d.DocID)}" title="แก้ไข" aria-label="แก้ไข"><i class="fas fa-pen"></i><span class="act-text">แก้ไข</span></button>
+            <button class="btn btn-outline-danger btn-sm delete-doc" data-id="${esc(d.DocID)}" data-count="${d.PersonCount || 0}" title="ลบ" aria-label="ลบ"><i class="fas fa-trash"></i><span class="act-text">ลบ</span></button>
           </td>
         </tr>
         <tr class="doc-persons" id="persons-${esc(d.DocID)}" style="display:none">
           <td colspan="6">${personRowsHtml(d)}</td>
         </tr>`).join('');
     })
-    .catch(() => {});
+    .catch(() => {
+      tbody.innerHTML = state('fa-triangle-exclamation', 'โหลดรายการเอกสารไม่สำเร็จ', 'ตรวจสอบการเชื่อมต่อแล้วลองใหม่อีกครั้ง');
+    });
 }
 
 document.querySelector('#docTable').addEventListener('click', async e => {
@@ -827,24 +1005,40 @@ document.querySelector('#docTable').addEventListener('click', async e => {
 
   const del = e.target.closest('.delete-doc');
   if (del) {
-    if (!confirm('ยืนยันการลบเอกสารนี้พร้อมรายชื่อทั้งหมดหรือไม่')) return;
-    const body = new FormData();
-    body.append('DocID', del.dataset.id);
-    const res = await fetch('api/alien_insured_delete.php', { method: 'POST', body });
-    const result = await res.json();
-    alert(result.message);
-    if (result.success) loadDocs();
+    const count = del.dataset.count || '0';
+    const ok = await confirmAction({
+      title: 'ลบเอกสารนี้?',
+      text: `รายชื่อผู้ประกันตน ${count} คนในเอกสารจะถูกลบไปด้วย และกู้คืนไม่ได้`,
+      confirmText: 'ลบเอกสาร'
+    });
+    if (!ok) return;
+    try {
+      const body = new FormData();
+      body.append('DocID', del.dataset.id);
+      const res = await fetch('api/alien_insured_delete.php', { method: 'POST', body });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.message || 'ลบข้อมูลไม่สำเร็จ');
+      Toast.fire({ icon: 'success', title: result.message || 'ลบเอกสารเรียบร้อย' });
+      loadDocs();
+    } catch (err) {
+      alertError(err.message || 'ไม่สามารถลบเอกสารได้', 'ลบไม่สำเร็จ');
+    }
     return;
   }
 
   const edit = e.target.closest('.edit-doc');
   if (edit) {
-    const res = await fetch('api/alien_insured_detail.php?id=' + encodeURIComponent(edit.dataset.id));
-    const result = await res.json();
-    if (!result.success) { alert(result.message || 'ไม่พบข้อมูล'); return; }
-    document.querySelector('#draftBar').classList.remove('show');
-    fillForm(result.data.doc, result.data.persons, result.data.doc.DocID);
-    showStep(0);
+    try {
+      const res = await fetch('api/alien_insured_detail.php?id=' + encodeURIComponent(edit.dataset.id));
+      const result = await res.json();
+      if (!result.success) throw new Error(result.message || 'ไม่พบข้อมูลเอกสารนี้');
+      document.querySelector('#draftBar').classList.remove('show');
+      fillForm(result.data.doc, result.data.persons, result.data.doc.DocID);
+      showStep(0);
+      Toast.fire({ icon: 'info', title: 'โหลดเอกสารแล้ว — แก้ไขได้ทันที' });
+    } catch (err) {
+      alertError(err.message || 'ไม่สามารถโหลดข้อมูลได้');
+    }
   }
 });
 
