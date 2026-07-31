@@ -34,6 +34,8 @@ $thaiDateFull = function ($iso) {
 
 $officeName     = $doc['OfficeName'] ?: ALIEN_INSURED_DEFAULT_OFFICE;
 $receiverOffice = $doc['ReceiverOffice'] ?: ALIEN_INSURED_DEFAULT_RECEIVER;
+// เอกสารที่บันทึกก่อนระบบเก็บคำนำหน้าจะมีแต่ชื่อ-สกุล ต้องเติมให้ตรงกับหน้าพิมพ์รายงาน
+$senderName     = alienInsuredWithTitle($doc['SenderName'] ?? '', alienInsuredTitleMap($pdo));
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -135,7 +137,7 @@ $receiverOffice = $doc['ReceiverOffice'] ?: ALIEN_INSURED_DEFAULT_RECEIVER;
     <div class="sign-col">
       <div class="sign-block">
         <div class="line">ขอแสดงความนับถือ / ผู้ส่งมอบเอกสาร</div>
-        <div class="line">(<?= htmlspecialchars($doc['SenderName'] ?: '.....................................................') ?>)</div>
+        <div class="line">(<?= htmlspecialchars($senderName ?: '.....................................................') ?>)</div>
         <div class="line">ตำแหน่ง<?= htmlspecialchars($doc['SenderPosition'] ?: '.....................................................') ?></div>
       </div>
       <div class="sign-office">เจ้าหน้าที่<?= htmlspecialchars($officeName) ?></div>
