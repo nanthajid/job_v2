@@ -137,10 +137,10 @@ try {
     }
 
     // สร้าง DocID ตามรูปแบบที่ตั้งไว้ในตาราง doc_running (ประเภท 'selft_rep')
-    // เลขลำดับคิดจากเลขสูงสุดที่มีอยู่จริงของรอบนั้น + 1 จึงไม่ข้ามเมื่อลบเอกสารท้ายสุดออก
-    $serverDate = date('Y-m-d');
-    $running    = nextDocRunning($pdo, 'selft_rep', $serverDate);
-    $docID      = $running['docid'];
+    // ใช้วันที่รายงานตัว (RDate) เป็นรอบของเลข ไม่ใช่วันที่ในเครื่อง เพื่อให้เลขอยู่ในชุดเดียว
+    // กับวันที่ของเอกสารเสมอ — บันทึกย้อนหลังจึงได้เลขว่างของวันนั้น ไม่ไปกินเลขของวันนี้
+    $running = nextDocRunning($pdo, 'selft_rep', $rDate);
+    $docID   = $running['docid'];
 
     // INSERT selft_rep
     $rep = $pdo->prepare(
