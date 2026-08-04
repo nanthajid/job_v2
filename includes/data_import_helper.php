@@ -39,13 +39,15 @@ function dataImportRun(PDO $pdo, array $cfg): array
 
     $table       = '`' . $cfg['table'] . '`';
     $sourceTable = '`' . IMPORT_SOURCE_DB . '`.`' . $cfg['table'] . '`';
+    $exprs       = $cfg['source_expr'] ?? [];
     $colList     = implode(', ', array_map(fn($c) => "`$c`", $cfg['columns']));
+    $selectList  = implode(', ', array_map(fn($c) => ($exprs[$c] ?? "s.`$c`") . " AS `$c`", $cfg['columns']));
     $updateList  = implode(', ', array_map(fn($c) => "`$c` = VALUES(`$c`)", $cfg['columns']));
 
     $pdo->beginTransaction();
     $pdo->exec(
         "INSERT INTO {$table} ({$colList})
-         SELECT {$colList} FROM {$sourceTable}
+         SELECT {$selectList} FROM {$sourceTable} s
          ON DUPLICATE KEY UPDATE {$updateList}"
     );
     $pdo->commit();

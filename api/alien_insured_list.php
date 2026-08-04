@@ -9,7 +9,8 @@ $pdo   = getDB();
 $q     = trim((string)($_GET['q'] ?? ''));
 $from  = alienInsuredParseDate($_GET['from'] ?? '');
 $to    = alienInsuredParseDate($_GET['to'] ?? '');
-$limit = min(500, max(1, (int)($_GET['limit'] ?? 100)));
+$limit  = min(500, max(1, (int)($_GET['limit'] ?? 100)));
+$offset = max(0, (int)($_GET['offset'] ?? 0));
 
 $where  = [];
 $params = [];
@@ -27,9 +28,19 @@ if ($to !== null) {
     $where[]      = 'd.DocDate <= :to';
     $params['to'] = $to;
 }
+// ข้อมูลนำเข้าบางชุดมีแต่ตัวเอกสาร ไม่มีรายชื่อติดมา — เปิดสวิตช์นี้เพื่อไม่ให้มาเกะกะหัวตาราง
+if (!empty($_GET['has_persons'])) {
+    $where[] = 'EXISTS (SELECT 1 FROM alien_insured_person hp WHERE hp.DocID = d.DocID)';
+}
 $whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
 
-$stmt = $pdo->prepare('SELECT d.* FROM alien_insured_doc d' . $whereSql . ' ORDER BY d.DocDate DESC, d.DocID DESC LIMIT ' . $limit);
+// จำนวนเอกสารทั้งหมดที่ตรงตัวกรอง — หน้าเว็บใช้บอกว่าโหลดมาแล้วกี่ฉบับจากทั้งหมดเท่าไร
+$cStmt = $pdo->prepare('SELECT COUNT(*) FROM alien_insured_doc d' . $whereSql);
+$cStmt->execute($params);
+$total = (int) $cStmt->fetchColumn();
+
+$stmt = $pdo->prepare('SELECT d.* FROM alien_insured_doc d' . $whereSql
+    . ' ORDER BY d.DocDate DESC, d.DocID DESC LIMIT ' . $limit . ' OFFSET ' . $offset);
 $stmt->execute($params);
 $docs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -50,4 +61,34 @@ if ($docs) {
     unset($doc);
 }
 
-echo json_encode(['success' => true, 'data' => $docs], JSON_UNESCAPED_UNICODE);
+/**
+ * เลขบัตร ปกส. ที่ปรากฏในเอกสารมากกว่าหนึ่งฉบับ — ต้องนับจากข้อมูลทั้งหมด ไม่ใช่เฉพาะหน้าที่โหลด
+ * keepPersonID = แถวของเอกสารฉบับล่าสุด ใช้เป็นตัวแทนเมื่อผู้ใช้เลือกยุบแถวซ้ำ
+ */
+$dupStmt = $pdo->query(
+    "SELECT p.SsoCardNo,
+            COUNT(*) AS cnt,
+            CAST(SUBSTRING_INDEX(GROUP_CONCAT(p.PersonID ORDER BY d.DocDate DESC, d.DocID DESC), ',', 1) AS UNSIGNED) AS keepPersonID
+     FROM alien_insured_person p
+     JOIN alien_insured_doc d ON d.DocID = p.DocID
+     WHERE p.SsoCardNo IS NOT NULL AND p.SsoCardNo <> ''
+     GROUP BY p.SsoCardNo
+     HAVING COUNT(*) > 1"
+);
+
+$duplicates = [];
+foreach ($dupStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+    $duplicates[$row['SsoCardNo']] = [
+        'count'          => (int) $row['cnt'],
+        'keepPersonID'   => (int) $row['keepPersonID'],
+    ];
+}
+
+echo json_encode([
+    'success'    => true,
+    'data'       => $docs,
+    'total'      => $total,
+    'offset'     => $offset,
+    'limit'      => $limit,
+    'duplicates' => (object) $duplicates,
+], JSON_UNESCAPED_UNICODE);

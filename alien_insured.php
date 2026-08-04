@@ -154,8 +154,16 @@ foreach ($staffRows as $s) {
 
     #docTable th { background: #f8fafc; color: var(--navy); font-weight: 600; white-space: nowrap; }
     #docTable td { vertical-align: middle; }
-    .doc-persons { background: #f8fafc; }
-    .doc-persons table { margin-bottom: 0; background: #fff; }
+    /* ---------- หน้าต่างรายละเอียดเอกสาร ---------- */
+    #docViewModal .modal-content { border: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 12px 32px rgba(0, 0, 0, .2); }
+    #docViewModal .modal-header { background: var(--navy); color: #fff; border-bottom: 3px solid var(--gold); padding: 1.15rem 1.5rem; }
+    #docViewModal .modal-title { font-family: 'Prompt', 'Sarabun', sans-serif; font-weight: 600; font-size: 1.1rem; }
+    #docViewModal .modal-header .close { color: #fff; text-shadow: none; opacity: .8; }
+    #docViewModal .modal-header .close:hover { color: var(--gold); opacity: 1; }
+    #docViewModal .modal-body { padding: 1.5rem; }
+    #docViewModal .modal-footer { background: #fff; border-top: 1px solid var(--gray); padding: 1rem 1.5rem; }
+    #docViewModal table { margin-bottom: 0; }
+    #docViewModal th { background: #f8fafc; color: var(--navy); font-weight: 600; white-space: nowrap; }
     .badge-count { background: var(--royal); color: #fff; font-size: .85rem; padding: .35rem .6rem; border-radius: 6px; }
     /* สถานะว่าง/กำลังโหลด — บอกผู้ใช้ว่าทำอะไรต่อได้ ไม่ปล่อยตารางเปล่า */
     .table-state { text-align: center; color: var(--muted); padding: 2.5rem 1rem; }
@@ -208,7 +216,8 @@ foreach ($staffRows as $s) {
       .doc-actions .btn { flex: 1 1 45%; margin-left: 0; }
       .doc-actions .act-text { display: inline; margin-left: .35rem; }
       /* ตารางสรุปอ่านยากเมื่อถูกบีบ — ให้เลื่อนแนวนอนแทนการตัดคำ */
-      #reviewPersons table { min-width: 620px; }
+      #reviewPersons table, #docViewModal .table-responsive table { min-width: 620px; }
+      #docViewModal .modal-body { padding: 1rem; }
       #docTable .btn { min-height: 40px; }
     }
   </style>
@@ -441,26 +450,60 @@ foreach ($staffRows as $s) {
                 <button type="button" class="btn btn-outline-secondary btn-block" id="clearSearch">ล้างตัวกรอง</button>
               </div>
             </div>
+            <div class="form-row mb-3">
+              <div class="col-12 d-flex flex-wrap" style="gap:1.25rem">
+                <div class="custom-control custom-switch">
+                  <input type="checkbox" class="custom-control-input" id="onlyWithPersons" checked>
+                  <label class="custom-control-label" for="onlyWithPersons">ซ่อนเอกสารที่ยังไม่มีรายชื่อ</label>
+                </div>
+                <div class="custom-control custom-switch">
+                  <input type="checkbox" class="custom-control-input" id="collapseDupCards">
+                  <label class="custom-control-label" for="collapseDupCards">ยุบเลขบัตร ปกส. ที่ซ้ำให้เหลือแถวเดียว</label>
+                </div>
+              </div>
+            </div>
             <div class="table-responsive">
               <table class="table table-hover table-bordered" id="docTable">
                 <thead>
                   <tr>
-                    <th style="width:70px">ลำดับที่</th>
-                    <th style="width:170px">วันที่เอกสาร</th>
-                    <th>สำนักงานผู้ส่ง</th>
-                    <th>ผู้ส่งมอบเอกสาร</th>
-                    <th style="width:120px">จำนวนรายชื่อ</th>
+                    <th style="width:70px">ลำดับ</th>
+                    <th>ชื่อ-สกุลผู้ประกันตน</th>
+                    <th style="width:190px">เลขที่บัตร (ปกส.)</th>
+                    <th style="width:90px" class="text-center">เลิกจ้าง</th>
+                    <th style="width:90px" class="text-center">ลาออก</th>
                     <th style="width:200px"></th>
                   </tr>
                 </thead>
                 <tbody></tbody>
               </table>
             </div>
+            <div class="d-flex align-items-center flex-wrap mt-3" style="gap:.75rem">
+              <span id="docCountLabel" class="text-muted small"></span>
+              <button type="button" class="btn btn-outline-primary btn-sm ml-auto" id="loadMoreDocs" hidden>
+                <i class="fas fa-angles-down mr-1"></i>โหลดเอกสารเพิ่ม
+              </button>
+            </div>
           </div>
         </div>
 
       </div>
     </section>
+  </div>
+</div>
+
+<!-- รายละเอียดเอกสาร — แยกออกมาเป็นหน้าต่างต่างหาก ไม่แทรกกลางตารางรายชื่อ -->
+<div class="modal fade" id="docViewModal" tabindex="-1" role="dialog" aria-labelledby="docViewTitle" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="docViewTitle">รายละเอียดเอกสาร</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="ปิด"><span aria-hidden="true">&times;</span></button>
+      </div>
+      <div class="modal-body" id="docViewBody"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">ปิด</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -838,6 +881,20 @@ function resetForm() {
   clearDraft();
   showStep(0);
 }
+
+/** หลังบันทึกสำเร็จ — คงข้อมูลเอกสาร (ขั้นตอนที่ 1) ไว้ ล้างเฉพาะรายชื่อ
+ *  แล้วพากลับไปขั้นตอนที่ 2 เพื่อกรอกชุดถัดไปต่อได้ทันที */
+function startNextEntry() {
+  document.querySelector('#DocID').value = '';
+  document.querySelector('#editingBanner').classList.remove('show');
+  document.querySelector('#personRows').innerHTML = '';
+  personIndex = 0;
+  panels.forEach((p, i) => clearStepAlert(i));
+  clearDraft();
+  showStep(1);
+  addPersonRow({}, true);   // เพิ่มหลังสลับขั้นตอนแล้ว โฟกัสจึงตกที่ช่องที่มองเห็นจริง
+}
+
 document.querySelector('#resetForm').onclick = async () => {
   const ok = await confirmAction({
     title: 'ล้างข้อมูลทั้งหมด?',
@@ -866,19 +923,15 @@ form.addEventListener('submit', async e => {
     const res = await fetch(isEdit ? 'api/alien_insured_update.php' : 'api/alien_insured_save.php', { method: 'POST', body: new FormData(form) });
     const result = await res.json();
     if (!result.success) throw new Error(result.message || 'บันทึกข้อมูลไม่สำเร็จ');
-    const savedId = result.DocID || editingId;   // API แก้ไขไม่ส่ง DocID กลับมา ใช้เลขที่กำลังแก้ไขแทน
     await Swal.fire({
       icon: 'success',
       title: isEdit ? 'บันทึกการแก้ไขแล้ว' : 'บันทึกเอกสารเรียบร้อย',
       text: result.message,
-      showDenyButton: !!savedId,
-      denyButtonText: 'พิมพ์แบบฟอร์ม',
       confirmButtonText: 'เสร็จสิ้น'
-    }).then(r => {
-      if (r.isDenied && savedId) window.open('alien_insured_print.php?id=' + encodeURIComponent(savedId), '_blank', 'noopener');
     });
-    resetForm();
+    startNextEntry();
     loadDocs();
+    Toast.fire({ icon: 'info', title: 'กรอกรายชื่อชุดถัดไปได้เลย — ข้อมูลเอกสารเดิมถูกเก็บไว้ให้แล้ว' });
   } catch (err) {
     showStepAlert(2, err.message || 'ไม่สามารถบันทึกข้อมูลได้');
   } finally {
@@ -889,6 +942,7 @@ form.addEventListener('submit', async e => {
 
 /* ---------- รายการเอกสาร ---------- */
 let searchTimer;
+let docsById = {};   // เก็บเอกสารรอบล่าสุดไว้ให้หน้าต่างรายละเอียดหยิบไปแสดงโดยไม่ต้องยิง API ซ้ำ
 const fromPicker = initDatePicker(document.querySelector('#searchFrom'), () => loadDocs());
 const toPicker = initDatePicker(document.querySelector('#searchTo'), () => loadDocs());
 
@@ -898,10 +952,21 @@ document.querySelector('#searchQ').addEventListener('input', () => {
 });
 document.querySelector('#clearSearch').onclick = () => {
   document.querySelector('#searchQ').value = '';
+  document.querySelector('#onlyWithPersons').checked = true;   // ค่าเริ่มต้นของหน้า
+  document.querySelector('#collapseDupCards').checked = false;
   fromPicker.clear();
   toPicker.clear();
   loadDocs();
 };
+
+// ซ่อนเอกสารไม่มีรายชื่อ = กรองฝั่ง API (จำนวนรวมต้องเปลี่ยนตาม) ส่วนยุบแถวซ้ำวาดใหม่ฝั่งหน้าเว็บก็พอ
+document.querySelector('#onlyWithPersons').addEventListener('change', () => loadDocs());
+document.querySelector('#collapseDupCards').addEventListener('change', () => {
+  const q = document.querySelector('#searchQ').value.trim();
+  const from = document.querySelector('#searchFrom').value;
+  const to = document.querySelector('#searchTo').value;
+  renderDocs(q, !!(q || from || to));
+});
 
 /** ส่งช่วงวันที่ที่กำลังกรองอยู่ไปยังหน้าพิมพ์ตามช่วงวันที่ */
 function syncRangePrintLink(from, to) {
@@ -942,11 +1007,51 @@ function personRowsHtml(doc) {
       <td>${esc(p.SsoCardNo || '-')}</td>
       <td class="text-center">${Number(p.IsTerminated) ? '<i class="fas fa-check text-success"></i>' : ''}</td>
       <td class="text-center">${Number(p.IsResigned) ? '<i class="fas fa-check text-success"></i>' : ''}</td>
-      <td>${esc(p.Remark || '-')}</td></tr>`).join('')}</tbody></table>
-    ${signatureHtml(doc)}`;
+      <td>${esc(p.Remark || '-')}</td></tr>`).join('')}</tbody></table>`;
 }
 
-function loadDocs() {
+/** เนื้อหาในหน้าต่างรายละเอียดเอกสาร — ตารางหลักแสดงรายคน ข้อมูลระดับเอกสารจึงมาอยู่ตรงนี้ */
+function docDetailHtml(doc) {
+  const info = [
+    ['วันที่เอกสาร', thaiDate(doc.DocDate)],
+    ['สำนักงานผู้ส่ง', doc.OfficeName || '-'],
+    ['ผู้ส่งมอบเอกสาร', [doc.SenderName, doc.SenderPosition].filter(Boolean).join(' · ') || '-'],
+    ['ผู้รับมอบเอกสาร', [doc.ReceiverOffice, doc.ReceiverName].filter(Boolean).join(' · ') || '-'],
+    ['หมายเหตุของเอกสาร', doc.Remark || '-']
+  ];
+  return `
+    <dl class="review-list">
+      ${info.map(([label, value]) => `<div class="review-item"><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('')}
+    </dl>
+    <h6 class="text-navy font-weight-bold mb-2">รายชื่อผู้ประกันตน <span class="badge-count ml-1">${doc.PersonCount || 0} คน</span></h6>
+    <div class="table-responsive">${personRowsHtml(doc)}</div>`;
+}
+
+/** เปิดหน้าต่างรายละเอียดของเอกสารที่แถวนั้นสังกัดอยู่ */
+function openDocModal(doc) {
+  if (!doc) return;
+  document.querySelector('#docViewTitle').textContent = `เอกสารเลขที่ ${doc.DocID} · ${thaiDate(doc.DocDate)}`;
+  document.querySelector('#docViewBody').innerHTML = docDetailHtml(doc);
+  $('#docViewModal').modal('show');
+}
+
+/** ค้นด้วยคำเดียวกับที่ API ใช้กรองเอกสาร เพื่อให้เหลือเฉพาะแถวของคนที่ตรงคำค้น */
+function personMatches(person, q) {
+  const s = q.toLowerCase();
+  return String(person.FullName || '').toLowerCase().includes(s)
+      || String(person.SsoCardNo || '').toLowerCase().includes(s);
+}
+
+/* เอกสารมีหลายร้อยฉบับ จึงโหลดทีละหน้าแล้วต่อท้ายเมื่อกด "โหลดเอกสารเพิ่ม" */
+const DOCS_PAGE_SIZE = 100;
+let loadedDocs = [];   // เอกสารที่โหลดมาแล้วทั้งหมดของตัวกรองชุดปัจจุบัน
+let docsTotal = 0;     // จำนวนเอกสารทั้งหมดที่ตรงตัวกรอง (ฝั่ง API นับให้)
+let dupCards = {};     // เลขบัตร ปกส. ที่ซ้ำข้ามเอกสาร — API นับจากข้อมูลทั้งหมด ไม่ใช่แค่หน้าที่โหลด
+
+const tableState = (icon, title, detail) =>
+  `<tr><td colspan="6"><div class="table-state"><i class="fas ${icon}"></i><strong>${esc(title)}</strong>${esc(detail)}</div></td></tr>`;
+
+function loadDocs(append = false) {
   const params = new URLSearchParams();
   const q = document.querySelector('#searchQ').value.trim();
   const from = document.querySelector('#searchFrom').value;
@@ -954,61 +1059,113 @@ function loadDocs() {
   if (q) params.set('q', q);
   if (from) params.set('from', from);
   if (to) params.set('to', to);
+  if (document.querySelector('#onlyWithPersons').checked) params.set('has_persons', '1');
+  params.set('limit', DOCS_PAGE_SIZE);
+  params.set('offset', append ? loadedDocs.length : 0);
   syncRangePrintLink(from, to);
 
   const tbody = document.querySelector('#docTable tbody');
-  const state = (icon, title, detail) =>
-    `<tr><td colspan="6"><div class="table-state"><i class="fas ${icon}"></i><strong>${esc(title)}</strong>${esc(detail)}</div></td></tr>`;
-  tbody.innerHTML = state('fa-spinner fa-spin', 'กำลังโหลดข้อมูล', 'กรุณารอสักครู่');
+  const moreBtn = document.querySelector('#loadMoreDocs');
+  moreBtn.disabled = true;
+  if (append) moreBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>กำลังโหลด...';
+  else tbody.innerHTML = tableState('fa-spinner fa-spin', 'กำลังโหลดข้อมูล', 'กรุณารอสักครู่');
 
   fetch('api/alien_insured_list.php?' + params.toString())
     .then(r => r.json())
     .then(res => {
       const docs = res.data || [];
-      const filtering = !!(q || from || to);
-      if (!docs.length) {
-        tbody.innerHTML = filtering
-          ? state('fa-magnifying-glass', 'ไม่พบเอกสารที่ตรงกับตัวกรอง', 'ลองแก้คำค้นหรือกดปุ่ม "ล้างตัวกรอง"')
-          : state('fa-folder-open', 'ยังไม่มีเอกสารที่บันทึกไว้', 'กรอกแบบฟอร์มด้านบนเพื่อบันทึกเอกสารฉบับแรก');
-        return;
-      }
-      tbody.innerHTML = docs.map((d, i) => `
-        <tr>
-          <td>${i + 1}</td>
-          <td>${thaiDate(d.DocDate)}</td>
-          <td>${esc(d.OfficeName || '-')}</td>
-          <td>${esc(d.SenderName || '-')}</td>
-          <td><span class="badge-count">${d.PersonCount || 0} คน</span></td>
-          <td class="text-right doc-actions">
-            <button class="btn btn-outline-secondary btn-sm toggle-persons" data-id="${esc(d.DocID)}" title="ดูรายชื่อ" aria-label="ดูรายชื่อ"><i class="fas fa-list"></i><span class="act-text">ดูรายชื่อ</span></button>
-            <a class="btn btn-outline-dark btn-sm" href="alien_insured_print.php?id=${encodeURIComponent(d.DocID)}" target="_blank" rel="noopener" title="พิมพ์แบบฟอร์ม" aria-label="พิมพ์แบบฟอร์ม"><i class="fas fa-print"></i><span class="act-text">พิมพ์</span></a>
-            <button class="btn btn-outline-primary btn-sm edit-doc" data-id="${esc(d.DocID)}" title="แก้ไข" aria-label="แก้ไข"><i class="fas fa-pen"></i><span class="act-text">แก้ไข</span></button>
-            <button class="btn btn-outline-danger btn-sm delete-doc" data-id="${esc(d.DocID)}" data-count="${d.PersonCount || 0}" title="ลบ" aria-label="ลบ"><i class="fas fa-trash"></i><span class="act-text">ลบ</span></button>
-          </td>
-        </tr>
-        <tr class="doc-persons" id="persons-${esc(d.DocID)}" style="display:none">
-          <td colspan="6">${personRowsHtml(d)}</td>
-        </tr>`).join('');
+      loadedDocs = append ? loadedDocs.concat(docs) : docs;
+      docsTotal = typeof res.total === 'number' ? res.total : loadedDocs.length;
+      dupCards = res.duplicates || {};
+      renderDocs(q, !!(q || from || to));
     })
     .catch(() => {
-      tbody.innerHTML = state('fa-triangle-exclamation', 'โหลดรายการเอกสารไม่สำเร็จ', 'ตรวจสอบการเชื่อมต่อแล้วลองใหม่อีกครั้ง');
+      if (!append) tbody.innerHTML = tableState('fa-triangle-exclamation', 'โหลดรายการเอกสารไม่สำเร็จ', 'ตรวจสอบการเชื่อมต่อแล้วลองใหม่อีกครั้ง');
+      else Toast.fire({ icon: 'error', title: 'โหลดเอกสารเพิ่มไม่สำเร็จ' });
+    })
+    .finally(() => {
+      moreBtn.innerHTML = '<i class="fas fa-angles-down mr-1"></i>โหลดเอกสารเพิ่ม';
+      moreBtn.disabled = false;
     });
 }
 
+/** วาดตารางจากเอกสารที่โหลดสะสมไว้ทั้งหมด */
+function renderDocs(q, filtering) {
+  const tbody = document.querySelector('#docTable tbody');
+  const moreBtn = document.querySelector('#loadMoreDocs');
+  const label = document.querySelector('#docCountLabel');
+
+  moreBtn.hidden = loadedDocs.length >= docsTotal;
+
+  if (!loadedDocs.length) {
+    label.textContent = '';
+    tbody.innerHTML = filtering
+      ? tableState('fa-magnifying-glass', 'ไม่พบเอกสารที่ตรงกับตัวกรอง', 'ลองแก้คำค้นหรือกดปุ่ม "ล้างตัวกรอง"')
+      : tableState('fa-folder-open', 'ยังไม่มีเอกสารที่บันทึกไว้', 'กรอกแบบฟอร์มด้านบนเพื่อบันทึกเอกสารฉบับแรก');
+    return;
+  }
+
+  // 1 แถว = ผู้ประกันตน 1 คน · เอกสารที่ยังไม่มีรายชื่อยังต้องมีแถวไว้ให้กดแก้ไข/ลบได้
+  const collapseDup = document.querySelector('#collapseDupCards').checked;
+  let collapsed = 0;
+  const rows = [];
+  loadedDocs.forEach(d => {
+    const persons = d.persons || [];
+    const matched = q ? persons.filter(p => personMatches(p, q)) : persons;
+    const shown = matched.length ? matched : persons;
+    if (!shown.length) rows.push({ doc: d, person: null });
+    else shown.forEach(p => {
+      // ยุบแถวซ้ำ = เก็บไว้เฉพาะแถวของเอกสารฉบับล่าสุดที่ใช้เลขบัตรนั้น
+      const dup = dupCards[p.SsoCardNo];
+      if (collapseDup && dup && Number(p.PersonID) !== dup.keepPersonID) { collapsed++; return; }
+      rows.push({ doc: d, person: p, dup });
+    });
+  });
+
+  label.textContent = `แสดง ${loadedDocs.length.toLocaleString('th-TH')} จาก ${docsTotal.toLocaleString('th-TH')} ฉบับ`
+    + (collapsed ? ` · ยุบแถวซ้ำไว้ ${collapsed.toLocaleString('th-TH')} แถว` : '');
+
+  docsById = {};
+  loadedDocs.forEach(d => { docsById[d.DocID] = d; });
+
+  tbody.innerHTML = rows.map((r, i) => {
+    const d = r.doc, p = r.person;
+    // ป้ายเตือนเลขบัตรซ้ำ ติดไว้เสมอไม่ว่าจะยุบแถวหรือไม่ จะได้รู้ว่าคนนี้มีเอกสารมากกว่าหนึ่งฉบับ
+    const dupBadge = r.dup
+      ? ` <span class="badge badge-warning" title="เลขบัตรนี้ปรากฏใน ${r.dup.count} เอกสาร">ซ้ำ ${r.dup.count} ฉบับ</span>`
+      : '';
+    return `
+    <tr>
+      <td class="text-center">${i + 1}</td>
+      <td>${p ? esc([p.TitleName, p.FullName].filter(Boolean).join(' ')) : '<span class="text-muted">— เอกสารนี้ยังไม่มีรายชื่อ —</span>'}</td>
+      <td>${p ? esc(p.SsoCardNo || '-') + dupBadge : '-'}</td>
+      <td class="text-center">${p && Number(p.IsTerminated) ? '<i class="fas fa-check text-success"></i>' : ''}</td>
+      <td class="text-center">${p && Number(p.IsResigned) ? '<i class="fas fa-check text-success"></i>' : ''}</td>
+      <td class="text-right doc-actions">
+        <button class="btn btn-outline-secondary btn-sm view-doc" data-id="${esc(d.DocID)}" title="ดูรายละเอียดเอกสาร" aria-label="ดูรายละเอียดเอกสาร"><i class="fas fa-eye"></i><span class="act-text">ดู</span></button>
+        <button class="btn btn-outline-primary btn-sm edit-doc" data-id="${esc(d.DocID)}" title="แก้ไขเอกสาร" aria-label="แก้ไขเอกสาร"><i class="fas fa-pen"></i><span class="act-text">แก้ไข</span></button>
+        <button class="btn btn-outline-danger btn-sm delete-doc" data-id="${esc(d.DocID)}" data-count="${d.PersonCount || 0}" data-date="${esc(thaiDate(d.DocDate))}" title="ลบเอกสาร" aria-label="ลบเอกสาร"><i class="fas fa-trash"></i><span class="act-text">ลบ</span></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+document.querySelector('#loadMoreDocs').onclick = () => loadDocs(true);
+
 document.querySelector('#docTable').addEventListener('click', async e => {
-  const toggle = e.target.closest('.toggle-persons');
-  if (toggle) {
-    const row = document.querySelector('#persons-' + toggle.dataset.id);
-    row.style.display = row.style.display === 'none' ? '' : 'none';
+  const view = e.target.closest('.view-doc');
+  if (view) {
+    openDocModal(docsById[view.dataset.id]);
     return;
   }
 
   const del = e.target.closest('.delete-doc');
   if (del) {
     const count = del.dataset.count || '0';
+    // แถวนี้เป็นรายบุคคล แต่ปุ่มลบทำงานทั้งฉบับ — บอกวันที่และจำนวนคนให้ชัดก่อนยืนยัน
     const ok = await confirmAction({
-      title: 'ลบเอกสารนี้?',
-      text: `รายชื่อผู้ประกันตน ${count} คนในเอกสารจะถูกลบไปด้วย และกู้คืนไม่ได้`,
+      title: 'ลบทั้งเอกสารฉบับนี้?',
+      text: `เอกสารวันที่ ${del.dataset.date || '-'} พร้อมรายชื่อผู้ประกันตน ${count} คนจะถูกลบทั้งฉบับ และกู้คืนไม่ได้`,
       confirmText: 'ลบเอกสาร'
     });
     if (!ok) return;
