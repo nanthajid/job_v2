@@ -130,10 +130,13 @@ function alienInsuredNormalizePersons($persons): array
     return $result;
 }
 
-/** บันทึกรายชื่อผู้ประกันตนของเอกสารหนึ่งฉบับ (ต้องอยู่ใน transaction) */
-function alienInsuredInsertPersons(PDO $pdo, int $docId, array $persons): void
+/**
+ * บันทึกรายชื่อผู้ประกันตนของเอกสารหนึ่งฉบับ (ต้องอยู่ใน transaction)
+ * $table รับค่าจากค่าคงที่ของแต่ละโมดูลเท่านั้น (ขึ้นทะเบียน / รายงานตัว) ไม่รับจากผู้ใช้
+ */
+function alienInsuredInsertPersons(PDO $pdo, int $docId, array $persons, string $table = 'alien_insured_person'): void
 {
-    $stmt = $pdo->prepare('INSERT INTO alien_insured_person
+    $stmt = $pdo->prepare('INSERT INTO ' . $table . '
         (DocID, SeqNo, TitleName, FullName, SsoCardNo, IsTerminated, IsResigned, Remark)
         VALUES (:DocID,:SeqNo,:TitleName,:FullName,:SsoCardNo,:IsTerminated,:IsResigned,:Remark)');
 
