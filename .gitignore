@@ -11,6 +11,9 @@ vendor/
 uploads/staff/*
 !uploads/staff/noimage.png
 
+# ไฟล์ backup / ไฟล์บีบอัดที่ไม่ต้องเก็บเข้า repo
+*.zip
+
 # OS files
 Thumbs.db
 Desktop.ini
