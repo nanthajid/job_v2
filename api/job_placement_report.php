@@ -25,15 +25,17 @@ $validDate = function ($s) {
 $params = [];
 $conds  = [];
 
+// ช่วงข้อมูลอ้างอิง "วันที่บันทึกข้อมูล" = job_placement.CreateDate
+// CreateDate เป็น datetime จึงเทียบขอบบนแบบ < วันถัดไป เพื่อให้รวมข้อมูลที่บันทึกในวันสุดท้ายทั้งวัน
 if ($validDate($dateFrom)) {
-    $conds[] = 'jp.StartDate >= :from';
-    $params[':from'] = $dateFrom;
+    $conds[] = 'jp.CreateDate >= :from';
+    $params[':from'] = $dateFrom . ' 00:00:00';
 } else {
     $dateFrom = '';
 }
 if ($validDate($dateTo)) {
-    $conds[] = 'jp.StartDate <= :to';
-    $params[':to'] = $dateTo;
+    $conds[] = 'jp.CreateDate < :to';
+    $params[':to'] = (new DateTime($dateTo))->modify('+1 day')->format('Y-m-d') . ' 00:00:00';
 } else {
     $dateTo = '';
 }

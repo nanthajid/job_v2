@@ -987,7 +987,7 @@ $(function () {
     processing: true,
     ajax: { url: 'api/job_placement_list.php', type: 'GET' },
     language: thaiLang,
-    order: [[5, 'desc']],
+    order: [[6, 'desc']],   // เรียงตามวันที่เริ่มงานล่าสุด (index ต้องตรงกับ columnsMap ใน API)
     columns: [
       {
         data: null,
@@ -1021,9 +1021,6 @@ $(function () {
         orderable: false,
         width: '100px',
         render: function(data, type, row) {
-          if (!row.JPNo) {
-            return '<button class="btn btn-sm btn-primary btn-action" data-action="add-placement" data-empid="' + row.EmpID + '" title="เพิ่มข้อมูลการบรรจุงาน"><i class="fas fa-plus"></i></button>';
-          }
           return '<button class="btn btn-sm btn-info btn-action mr-1" data-action="view" data-id="' + row.JPNo + '" title="ดูรายละเอียด"><i class="fas fa-eye"></i></button>' +
                  '<button class="btn btn-sm btn-warning btn-action mr-1" data-action="edit" data-id="' + row.JPNo + '" title="แก้ไข"><i class="fas fa-edit"></i></button>' +
                  '<button class="btn btn-sm btn-danger btn-action" data-action="delete" data-id="' + row.JPNo + '" title="ลบ"><i class="fas fa-trash"></i></button>';
@@ -1045,27 +1042,6 @@ $(function () {
     $('#jpModal').modal('show');
   });
 
-  // Add a placement record for a person reported as employed (selft_rep.JNo = 2).
-  $('#jpTable tbody').on('click', 'button[data-action="add-placement"]', function() {
-    var empID = String($(this).data('empid'));
-    $('#btnAddJobPlacement').trigger('click');
-    $('#modalEmpID').val(empID);
-
-    $.getJSON('api/job_placement_emp_lookup.php', { id: empID }).done(function(res) {
-      if (!res.success) return;
-      var d = res.data;
-      $('#modalEmpID').val(d.EmpID);
-      $('#modalEmpName').val(d.EmpName || '');
-      $('#modalTitle').val(d.TitleName || '');
-      $('#modalPhone').val(d.Phone || '');
-      $('#modalAddress').val(d.Address || '');
-      $('#modalEduNo').val(d.EduNo || '').trigger('change');
-      $('input[name="Gender"]').prop('checked', false);
-      if (d.Gender) {
-        $('input[name="Gender"][value="' + d.Gender + '"]').prop('checked', true);
-      }
-    });
-  });
   // ========== Edit Button ==========
   $('#jpTable tbody').on('click', 'button[data-action="edit"]', function() {
     var id = $(this).data('id');
