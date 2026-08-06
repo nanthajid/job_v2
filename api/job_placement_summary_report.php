@@ -24,13 +24,15 @@ $validDate = function ($s) {
 $params = [];
 $conds  = [];
 
+// ช่วงข้อมูลอ้างอิง "วันที่บันทึกข้อมูล" = job_placement.CreateDate
+// CreateDate เป็น datetime จึงเทียบขอบบนแบบ < วันถัดไป เพื่อให้รวมข้อมูลที่บันทึกในวันสุดท้ายทั้งวัน
 if ($validDate($dateFrom)) {
     $conds[] = 'PeriodDate >= :from';
-    $params[':from'] = $dateFrom;
+    $params[':from'] = $dateFrom . ' 00:00:00';
 }
 if ($validDate($dateTo)) {
-    $conds[] = 'PeriodDate <= :to';
-    $params[':to'] = $dateTo;
+    $conds[] = 'PeriodDate < :to';
+    $params[':to'] = (new DateTime($dateTo))->modify('+1 day')->format('Y-m-d') . ' 00:00:00';
 }
 
 $where = $conds ? 'WHERE ' . implode(' AND ', $conds) : '';
@@ -66,29 +68,14 @@ if ($dateFrom && $dateTo) {
     $periodLabel = 'ประจำเดือน ' . $thaiMonthYear(date('Y-m-d'));
 }
 
-// ประชากรของรายงาน = 1) คนที่บันทึกข้อมูลบรรจุงานแล้ว (job_placement) รวมกับ
-// 2) คนที่รายงานตัวว่าได้งานเดือนนี้ (selft_rep.JNo=2) แต่ยังไม่มีใครกดเพิ่มข้อมูลบรรจุงานให้
-// เพื่อให้ตรงกับรายชื่อที่แสดงในตารางของหน้า job_placement.php (api/job_placement_list.php ใช้ UNION เดียวกันนี้)
-$unionSql = "
-    SELECT jp.Gender AS Gender, jp.Age AS Age, jp.EduNo AS EduNo, jp.StartDate AS PeriodDate
+// ประชากรของรายงาน = คนที่บันทึกข้อมูลบรรจุงานไว้ในตาราง job_placement เท่านั้น
+// ให้ตรงกับรายชื่อที่แสดงในตารางของหน้า job_placement.php (api/job_placement_list.php ใช้แหล่งข้อมูลเดียวกัน)
+$srcSql = "
+    SELECT jp.Gender AS Gender, jp.Age AS Age, jp.EduNo AS EduNo, jp.CreateDate AS PeriodDate
     FROM job_placement jp
-
-    UNION ALL
-
-    SELECT
-        CASE e.SexNo WHEN 1 THEN 'Male' WHEN 2 THEN 'Female' ELSE NULL END AS Gender,
-        NULL AS Age,
-        sr.EqNo AS EduNo,
-        sr.RDate AS PeriodDate
-    FROM selft_rep sr
-    INNER JOIN employee e ON e.EmpID = sr.EmpID
-    WHERE sr.JNo = 2
-      AND sr.RDate >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-      AND sr.RDate < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
-      AND NOT EXISTS (SELECT 1 FROM job_placement jp2 WHERE jp2.EmpID = sr.EmpID)
 ";
 
-$stmtSrc = $pdo->prepare("SELECT Gender, Age, EduNo FROM ($unionSql) src $where");
+$stmtSrc = $pdo->prepare("SELECT Gender, Age, EduNo FROM ($srcSql) src $where");
 $stmtSrc->execute($params);
 $srcRows = $stmtSrc->fetchAll(PDO::FETCH_ASSOC);
 
