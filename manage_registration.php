@@ -240,6 +240,9 @@ $pdo = getDB();
                 <button id="btnReset" class="btn btn-secondary ml-2">
                   <i class="fas fa-redo mr-2"></i>ล้างตัวกรอง
                 </button>
+                <button id="btnAdd" class="btn btn-success ml-2" style="border-radius: 8px; font-weight: 600;">
+                  <i class="fas fa-plus mr-2"></i>เพิ่มใหม่
+                </button>
               </div>
             </div>
           </div>
@@ -286,6 +289,78 @@ $pdo = getDB();
     </div>
   </footer>
 
+</div>
+
+<!-- ===== Modal: Add New ===== -->
+<div class="modal fade" id="addModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content" style="border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+      <div class="modal-header text-white" style="background: linear-gradient(135deg, var(--gov-navy) 0%, var(--gov-royal) 100%); border-bottom: 3px solid var(--gov-gold); border-radius: 12px 12px 0 0;">
+        <h5 class="modal-title text-white" style="font-weight: 600;">
+          <i class="fas fa-plus-circle mr-2"></i> เพิ่มข้อมูลใหม่
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal" style="opacity: 0.9;"><span>&times;</span></button>
+      </div>
+      <form id="addForm">
+        <div class="modal-body px-4 pt-4 pb-2">
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label">ประเภท <span class="text-danger">*</span></label>
+                <select id="addType" name="type" class="form-control" required>
+                  <option value="">— เลือกประเภท —</option>
+                  <option value="register">ลงทะเบียน</option>
+                  <option value="selfrep">รายงานตัว</option>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label">วันที่ <span class="text-danger">*</span></label>
+                <input type="text" id="addRDate" name="rDate" class="form-control" required>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">เลขบัตรประชาชน <span class="text-danger">*</span></label>
+            <input type="text" id="addEmpID" name="empID" class="form-control" placeholder="กรอก 13 หลัก" maxlength="13" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">ชื่อ-นามสกุล <span class="text-danger">*</span></label>
+            <input type="text" id="addEmpName" name="empName" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">เขต <span class="text-danger">*</span></label>
+            <select id="addKNo" name="KNo" class="form-control select2" required>
+              <option value="">— เลือกเขต —</option>
+              <?php
+              $kateRows = $pdo->query("SELECT KNo, KName FROM kate ORDER BY KNo")->fetchAll();
+              foreach ($kateRows as $k):
+              ?>
+                <option value="<?= (int)$k['KNo'] ?>"><?= htmlspecialchars($k['KName']) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">เบอร์โทรศัพท์</label>
+            <input type="text" id="addPhone" name="phone" class="form-control" maxlength="15">
+          </div>
+          <div class="form-group">
+            <label class="form-label">ที่อยู่</label>
+            <textarea id="addAddress" name="address" class="form-control" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer border-top-0 px-4 pt-2 pb-4">
+          <button type="button" class="btn btn-light px-4" data-dismiss="modal" style="border-radius: 8px; font-weight: 500; border: 1px solid #DEE2E6;">
+            <i class="fas fa-times mr-1"></i> ยกเลิก
+          </button>
+          <button type="submit" class="btn btn-primary px-4" style="border-radius: 8px; font-weight: 600;">
+            <i class="fas fa-save mr-2"></i> บันทึก
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 
 <!-- ===== Modal: Edit ===== -->
@@ -385,6 +460,20 @@ $(function () {
     $('#filterEmpName').val('');
     $('#filterType').val('all');
     loadData();
+  });
+
+  // Add new button
+  $('#btnAdd').on('click', function() {
+    $('#addForm')[0].reset();
+    $('#addType').val('').trigger('change');
+    $('#addKNo').val('').trigger('change');
+    flatpickr('#addRDate', {
+      locale: 'th',
+      dateFormat: 'Y-m-d',
+      defaultDate: 'today'
+    });
+    $('#addRDate').val('<?php echo date('Y-m-d'); ?>');
+    $('#addModal').modal('show');
   });
 
   function loadData() {
@@ -509,6 +598,39 @@ $(function () {
   // ID Card input formatting
   $('#filterEmpID').on('input', function() {
     this.value = this.value.replace(/\D/g, '').slice(0, 13);
+  });
+
+  $('#addEmpID').on('input', function() {
+    this.value = this.value.replace(/\D/g, '').slice(0, 13);
+  });
+
+  // Save add form
+  $('#addForm').on('submit', function(e) {
+    e.preventDefault();
+    var $btn = $(this).find('button[type="submit"]');
+    $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>บันทึก...');
+
+    $.ajax({
+      url: 'api/manage_registration_create.php',
+      type: 'POST',
+      dataType: 'json',
+      data: $(this).serialize()
+    })
+    .done(function(res) {
+      if (res && res.success) {
+        Toast.fire({ icon: 'success', title: 'บันทึกเรียบร้อย' });
+        $('#addModal').modal('hide');
+        loadData();
+      } else {
+        Swal.fire({ icon: 'error', title: 'ผิดพลาด', text: res.message || 'ไม่สามารถบันทึกได้' });
+      }
+    })
+    .fail(function() {
+      Swal.fire({ icon: 'error', title: 'ผิดพลาด', text: 'เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์' });
+    })
+    .always(function() {
+      $btn.prop('disabled', false).html('<i class="fas fa-save mr-2"></i>บันทึก');
+    });
   });
 
   // Edit button
