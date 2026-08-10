@@ -1062,8 +1062,58 @@ $(function () {
     this.value = this.value.replace(/\D/g, '').slice(0, 13);
   });
 
+  // ตรวจสอบการรายงานตัวในวันนี้ เมื่อกรอกเลขบัตร 13 หลักเสร็จ
+  $('#empID').on('change blur', function() {
+    var empID = $(this).val().trim();
+
+    if (!/^\d{13}$/.test(empID)) {
+      return;
+    }
+
+    // ไม่ตรวจสอบถ้าอยู่ในโหมดแก้ไข (เลขบัตรเป็น readonly)
+    if ($('#selfrepForm').data('mode') === 'edit') {
+      return;
+    }
+
+    checkSelfRepToday(empID, function(checkResult) {
+      if (checkResult.hasSelfRepToday) {
+        var today = $('#rDate').val();
+        Swal.fire({
+          icon: 'warning',
+          title: 'ไม่สามารถรายงานตัวซ้ำได้',
+          html: 'ในวันที่ <strong>' + today + '</strong><br>เลขบัตรประจำตัวประชาชน <strong>' + empID + '</strong><br>ได้มีการทำรายการไปแล้ว ไม่สามารถทำซ้ำได้',
+          confirmButtonText: 'ตกลง',
+          confirmButtonColor: '#dc3545'
+        });
+        $('#empID').val('').focus();
+      }
+    });
+  });
+
   // ตั้งค่าเริ่มต้น = โหมดรายงานตัวใหม่
   setSelfRepMode('new');
+
+  // ตรวจสอบการรายงานตัวในวันนี้
+  function checkSelfRepToday(empID, callback) {
+    var rDate = $('#rDate').val() || new Date().toISOString().split('T')[0];
+
+    $.ajax({
+      url: 'api/check_selfrep_today.php',
+      type: 'GET',
+      dataType: 'json',
+      data: { empID: empID, rDate: rDate }
+    })
+    .done(function (res) {
+      if (res && res.success) {
+        callback(res.data);
+      } else {
+        callback({ hasSelfRepToday: false });
+      }
+    })
+    .fail(function () {
+      callback({ hasSelfRepToday: false });
+    });
+  }
 
   $('#empID').autocomplete({
     minLength: 2,
@@ -1082,10 +1132,31 @@ $(function () {
         });
     },
     select: function (event, ui) {
-      fillMainForm(ui.item);
-      $('#addEmpAppend').addClass('d-none');
+      var empID = ui.item.EmpID;
+
+      // ตรวจสอบว่ามีการรายงานตัวในวันนี้แล้วหรือไม่
+      checkSelfRepToday(empID, function(checkResult) {
+        if (checkResult.hasSelfRepToday) {
+          var today = $('#rDate').val();
+          Swal.fire({
+            icon: 'warning',
+            title: 'ไม่สามารถรายงานตัวซ้ำได้',
+            html: 'ในวันที่ <strong>' + today + '</strong><br>เลขบัตรประจำตัวประชาชน <strong>' + empID + '</strong><br>ได้มีการทำรายการไปแล้ว ไม่สามารถทำซ้ำได้',
+            confirmButtonText: 'ตกลง',
+            confirmButtonColor: '#dc3545'
+          });
+          $('#empID').val('');
+          return;
+        }
+
+        // ไม่มีการรายงานตัวในวันนี้ ให้แสดงข้อมูล
+        fillMainForm(ui.item);
+        $('#addEmpAppend').addClass('d-none');
+        event.preventDefault();
+        Toast.fire({ icon: 'success', title: 'พบข้อมูลผู้ลงทะเบียน' });
+      });
+
       event.preventDefault();
-      Toast.fire({ icon: 'success', title: 'พบข้อมูลผู้ลงทะเบียน' });
     },
     focus: function (event, ui) {
       $('#empID').val(ui.item.EmpID);
@@ -1191,22 +1262,56 @@ $(function () {
     },
     submitHandler: function(form) {
       var $btnSubmit = $(form).find('button[type="submit"]');
-      $btnSubmit.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>กำลังบันทึก...');
-
+      var empID = $('#empID').val().trim();
       var docNo = $('#selfrepForm').data('docNo');
-      var url = docNo ? 'api/selfrep_update.php' : 'api/selfrep_save.php';
-      var formData = $(form).serialize();
-      if (docNo) {
-        formData += '&DocNo=' + docNo;
+
+      // ถ้าเป็นการรายงานตัวใหม่ ต้องตรวจสอบการรายงานตัวในวันนี้ก่อน
+      if (!docNo && /^\d{13}$/.test(empID)) {
+        $btnSubmit.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>กำลังตรวจสอบ...');
+
+        checkSelfRepToday(empID, function(checkResult) {
+          if (checkResult.hasSelfRepToday) {
+            var today = $('#rDate').val();
+            Swal.fire({
+              icon: 'warning',
+              title: 'ไม่สามารถรายงานตัวซ้ำได้',
+              html: 'ในวันที่ <strong>' + today + '</strong><br>เลขบัตรประจำตัวประชาชน <strong>' + empID + '</strong><br>ได้มีการทำรายการไปแล้ว ไม่สามารถทำซ้ำได้',
+              confirmButtonText: 'ตกลง',
+              confirmButtonColor: '#dc3545'
+            });
+            $btnSubmit.prop('disabled', false).html('<i class="fas fa-save mr-2"></i> บันทึกการรายงานตัว');
+            return;
+          }
+
+          // ผ่านการตรวจสอบ ให้ส่งฟอร์ม
+          submitSelfRepForm(form, docNo);
+        });
+        return;
       }
 
-      $.ajax({
-        url: url,
-        type: 'POST',
-        dataType: 'json',
-        data: formData
-      })
-      .done(function (res) {
+      // ถ้าเป็นการแก้ไขหรือไม่มีเลขบัตร ให้ส่งฟอร์มตรง
+      submitSelfRepForm(form, docNo);
+    }
+  });
+
+  // Function ที่ใช้ส่งฟอร์ม
+  function submitSelfRepForm(form, docNo) {
+    var $btnSubmit = $(form).find('button[type="submit"]');
+    $btnSubmit.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>กำลังบันทึก...');
+
+    var url = docNo ? 'api/selfrep_update.php' : 'api/selfrep_save.php';
+    var formData = $(form).serialize();
+    if (docNo) {
+      formData += '&DocNo=' + docNo;
+    }
+
+    $.ajax({
+      url: url,
+      type: 'POST',
+      dataType: 'json',
+      data: formData
+    })
+    .done(function (res) {
         if (res && res.success) {
           var isUpdate = docNo ? true : false;
 
@@ -1262,8 +1367,7 @@ $(function () {
       .always(function () {
         $btnSubmit.prop('disabled', false).html('<i class="fas fa-save mr-2"></i> บันทึกการรายงานตัว');
       });
-    }
-  });
+  }
 
   // Employee Modal Validation
   $('#empModalForm').validate({
