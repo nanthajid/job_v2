@@ -888,6 +888,7 @@ $(function () {
       url: 'api/employee_list.php',
       type: 'GET',
       dataType: 'json',
+      xhrFields: { withCredentials: true },
       data: { empID: empID, empName: empName }
     })
     .done(function(res) {
@@ -927,6 +928,7 @@ $(function () {
       url: 'api/employee_detail.php',
       type: 'GET',
       dataType: 'json',
+      xhrFields: { withCredentials: true },
       data: { empID: empID }
     })
     .done(function(res) {
@@ -971,6 +973,7 @@ $(function () {
           url: 'api/employee_delete.php',
           type: 'POST',
           dataType: 'json',
+          xhrFields: { withCredentials: true },
           data: { empID: empID }
         })
         .done(function(res) {
