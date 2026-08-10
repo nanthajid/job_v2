@@ -25,6 +25,13 @@ $pdo = getDB();
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
   <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/@ttskch/select2-bootstrap4-theme@1.5.2/dist/select2-bootstrap4.min.css" rel="stylesheet" />
+  <style>
+    :root {
+      --gov-navy: #002D62;
+      --gov-royal: #005EB8;
+      --gov-gold: #D4AF37;
+    }
+  </style>
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap4.min.css">
   <link rel="stylesheet" href="assets/css/custom.css">
 
@@ -281,6 +288,58 @@ $pdo = getDB();
 
 </div>
 
+<!-- ===== Modal: Edit ===== -->
+<div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content" style="border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+      <div class="modal-header text-white" style="background: linear-gradient(135deg, var(--gov-navy) 0%, var(--gov-royal) 100%); border-bottom: 3px solid var(--gov-gold); border-radius: 12px 12px 0 0;">
+        <h5 class="modal-title text-white" id="editModalTitle" style="font-weight: 600;">
+          <i class="fas fa-edit mr-2"></i> แก้ไขข้อมูล
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal" style="opacity: 0.9;"><span>&times;</span></button>
+      </div>
+      <form id="editForm">
+        <input type="hidden" id="editType" name="type">
+        <input type="hidden" id="editDocNo" name="docNo">
+        <div class="modal-body px-4 pt-4 pb-2">
+          <div class="form-group">
+            <label class="form-label">ชื่อ-นามสกุล <span class="text-danger">*</span></label>
+            <input type="text" id="editEmpName" name="EmpName" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">เขต <span class="text-danger">*</span></label>
+            <select id="editKNo" name="KNo" class="form-control select2" required>
+              <option value="">— เลือกเขต —</option>
+              <?php
+              $kateRows = $pdo->query("SELECT KNo, KName FROM kate ORDER BY KNo")->fetchAll();
+              foreach ($kateRows as $k):
+              ?>
+                <option value="<?= (int)$k['KNo'] ?>"><?= htmlspecialchars($k['KName']) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">เบอร์โทรศัพท์</label>
+            <input type="text" id="editPhone" name="Phone" class="form-control" maxlength="15">
+          </div>
+          <div class="form-group">
+            <label class="form-label">ที่อยู่</label>
+            <textarea id="editAddress" name="Address" class="form-control" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer border-top-0 px-4 pt-2 pb-4">
+          <button type="button" class="btn btn-light px-4" data-dismiss="modal" style="border-radius: 8px; font-weight: 500; border: 1px solid #DEE2E6;">
+            <i class="fas fa-times mr-1"></i> ยกเลิก
+          </button>
+          <button type="submit" class="btn btn-primary px-4" style="border-radius: 8px; font-weight: 600;">
+            <i class="fas fa-save mr-2"></i> บันทึก
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <!-- Scripts -->
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -288,6 +347,7 @@ $pdo = getDB();
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <script>
 $(function () {
@@ -297,6 +357,12 @@ $(function () {
     showConfirmButton: false,
     timer: 3000,
     timerProgressBar: true
+  });
+
+  // Initialize Select2
+  $('.select2').select2({
+    theme: 'bootstrap4',
+    width: '100%'
   });
 
   // Flatpickr Setup
@@ -348,6 +414,7 @@ $(function () {
               .append($('<td>').text(row.RDate))
               .append($('<td>').text(row.KName || '-'))
               .append($('<td>').html(
+                '<button class="btn btn-sm btn-info btnEdit" data-type="' + row.type + '" data-docno="' + row.DocNo + '" title="แก้ไข"><i class="fas fa-edit"></i> แก้ไข</button> ' +
                 '<button class="btn btn-sm btn-warning btnUnlock" data-type="' + row.type + '" data-docno="' + row.DocNo + '" title="ปลดล็อค"><i class="fas fa-unlock"></i> ปลดล็อค</button> ' +
                 '<button class="btn btn-sm btn-danger btnDelete" data-type="' + row.type + '" data-docno="' + row.DocNo + '" title="ลบ"><i class="fas fa-trash"></i> ลบ</button>'
               ));
@@ -442,6 +509,63 @@ $(function () {
   // ID Card input formatting
   $('#filterEmpID').on('input', function() {
     this.value = this.value.replace(/\D/g, '').slice(0, 13);
+  });
+
+  // Edit button
+  $(document).on('click', '.btnEdit', function() {
+    var type = $(this).data('type');
+    var docNo = $(this).data('docno');
+
+    $.ajax({
+      url: 'api/manage_registration_detail.php',
+      type: 'GET',
+      dataType: 'json',
+      data: { type: type, docNo: docNo }
+    })
+    .done(function(res) {
+      if (res && res.success) {
+        var data = res.data;
+        $('#editType').val(type);
+        $('#editDocNo').val(docNo);
+        $('#editEmpName').val(data.EmpName || '');
+        $('#editKNo').val(data.KNo || '').trigger('change');
+        $('#editPhone').val(data.Phone || '');
+        $('#editAddress').val(data.Address || '');
+        $('#editModal').modal('show');
+      }
+    })
+    .fail(function() {
+      Swal.fire({ icon: 'error', title: 'ผิดพลาด', text: 'ไม่สามารถโหลดข้อมูลได้' });
+    });
+  });
+
+  // Save edit form
+  $('#editForm').on('submit', function(e) {
+    e.preventDefault();
+    var $btn = $(this).find('button[type="submit"]');
+    $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>บันทึก...');
+
+    $.ajax({
+      url: 'api/manage_registration_save.php',
+      type: 'POST',
+      dataType: 'json',
+      data: $(this).serialize()
+    })
+    .done(function(res) {
+      if (res && res.success) {
+        Toast.fire({ icon: 'success', title: 'บันทึกเรียบร้อย' });
+        $('#editModal').modal('hide');
+        loadData();
+      } else {
+        Swal.fire({ icon: 'error', title: 'ผิดพลาด', text: res.message || 'ไม่สามารถบันทึกได้' });
+      }
+    })
+    .fail(function() {
+      Swal.fire({ icon: 'error', title: 'ผิดพลาด', text: 'เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์' });
+    })
+    .always(function() {
+      $btn.prop('disabled', false).html('<i class="fas fa-save mr-2"></i>บันทึก');
+    });
   });
 });
 </script>
