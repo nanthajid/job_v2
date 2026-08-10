@@ -1076,8 +1076,58 @@ $(function () {
     this.value = this.value.replace(/\D/g, '').slice(0, 13);
   });
 
+  // ตรวจสอบการลงทะเบียนในวันนี้ เมื่อกรอกเลขบัตร 13 หลักเสร็จ
+  $('#empID').on('change blur', function() {
+    var empID = $(this).val().trim();
+
+    if (!/^\d{13}$/.test(empID)) {
+      return;
+    }
+
+    // ไม่ตรวจสอบถ้าอยู่ในโหมดแก้ไข (เลขบัตรเป็น readonly)
+    if ($('#registerForm').data('mode') === 'edit') {
+      return;
+    }
+
+    checkRegisterToday(empID, function(checkResult) {
+      if (checkResult.hasRegisterToday) {
+        var today = $('#rDate').val();
+        Swal.fire({
+          icon: 'warning',
+          title: 'ไม่สามารถลงทะเบียนซ้ำได้',
+          html: 'ในวันที่ <strong>' + today + '</strong><br>เลขบัตรประจำตัวประชาชน <strong>' + empID + '</strong><br>ได้มีการทำรายการไปแล้ว ไม่สามารถทำซ้ำได้',
+          confirmButtonText: 'ตกลง',
+          confirmButtonColor: '#dc3545'
+        });
+        $('#empID').val('').focus();
+      }
+    });
+  });
+
   // ตั้งค่าเริ่มต้น = โหมดสร้างใหม่
   setRegisterMode('new');
+
+  // ตรวจสอบการลงทะเบียนในวันนี้
+  function checkRegisterToday(empID, callback) {
+    var rDate = $('#rDate').val() || new Date().toISOString().split('T')[0];
+
+    $.ajax({
+      url: 'api/check_register_today.php',
+      type: 'GET',
+      dataType: 'json',
+      data: { empID: empID, rDate: rDate }
+    })
+    .done(function (res) {
+      if (res && res.success) {
+        callback(res.data);
+      } else {
+        callback({ hasRegisterToday: false });
+      }
+    })
+    .fail(function () {
+      callback({ hasRegisterToday: false });
+    });
+  }
 
   // Autocomplete Logic
   function toggleAddEmpButton(term, results) {
@@ -1105,10 +1155,31 @@ $(function () {
         });
     },
     select: function (event, ui) {
-      fillMainForm(ui.item);
-      $('#addEmpAppend').addClass('d-none');
+      var empID = ui.item.EmpID;
+
+      // ตรวจสอบว่ามีการลงทะเบียนในวันนี้แล้วหรือไม่
+      checkRegisterToday(empID, function(checkResult) {
+        if (checkResult.hasRegisterToday) {
+          var today = $('#rDate').val();
+          Swal.fire({
+            icon: 'warning',
+            title: 'ไม่สามารถลงทะเบียนซ้ำได้',
+            html: 'ในวันที่ <strong>' + today + '</strong><br>เลขบัตรประจำตัวประชาชน <strong>' + empID + '</strong><br>ได้มีการทำรายการไปแล้ว ไม่สามารถทำซ้ำได้',
+            confirmButtonText: 'ตกลง',
+            confirmButtonColor: '#dc3545'
+          });
+          $('#empID').val('');
+          return;
+        }
+
+        // ไม่มีการลงทะเบียนในวันนี้ ให้แสดงข้อมูล
+        fillMainForm(ui.item);
+        $('#addEmpAppend').addClass('d-none');
+        event.preventDefault();
+        Toast.fire({ icon: 'success', title: 'พบข้อมูลผู้ลงทะเบียน' });
+      });
+
       event.preventDefault();
-      Toast.fire({ icon: 'success', title: 'พบข้อมูลผู้ลงทะเบียน' });
     },
     focus: function (event, ui) {
       $('#empID').val(ui.item.EmpID);
@@ -1210,22 +1281,56 @@ $(function () {
     },
     submitHandler: function(form) {
       var $btnSubmit = $(form).find('button[type="submit"]');
-      $btnSubmit.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>กำลังประมวลผล...');
-
+      var empID = $('#empID').val().trim();
       var docNo = $('#registerForm').data('docNo');
-      var url = docNo ? 'api/register_update.php' : 'api/register_save.php';
-      var formData = $(form).serialize();
-      if (docNo) {
-        formData += '&DocNo=' + docNo;
+
+      // ถ้าเป็นการสร้างใหม่ ต้องตรวจสอบการลงทะเบียนในวันนี้ก่อน
+      if (!docNo && /^\d{13}$/.test(empID)) {
+        $btnSubmit.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>กำลังตรวจสอบ...');
+
+        checkRegisterToday(empID, function(checkResult) {
+          if (checkResult.hasRegisterToday) {
+            var today = $('#rDate').val();
+            Swal.fire({
+              icon: 'warning',
+              title: 'ไม่สามารถลงทะเบียนซ้ำได้',
+              html: 'ในวันที่ <strong>' + today + '</strong><br>เลขบัตรประจำตัวประชาชน <strong>' + empID + '</strong><br>ได้มีการทำรายการไปแล้ว ไม่สามารถทำซ้ำได้',
+              confirmButtonText: 'ตกลง',
+              confirmButtonColor: '#dc3545'
+            });
+            $btnSubmit.prop('disabled', false).html('<i class="fas fa-save mr-2"></i> บันทึกข้อมูลการขึ้นทะเบียน');
+            return;
+          }
+
+          // ผ่านการตรวจสอบ ให้ส่งฟอร์ม
+          submitRegisterForm(form, docNo);
+        });
+        return;
       }
 
-      $.ajax({
-        url: url,
-        type: 'POST',
-        dataType: 'json',
-        data: formData
-      })
-      .done(function (res) {
+      // ถ้าเป็นการแก้ไขหรือไม่มีเลขบัตร ให้ส่งฟอร์มตรง
+      submitRegisterForm(form, docNo);
+    }
+  });
+
+  // Function ที่ใช้ส่งฟอร์ม
+  function submitRegisterForm(form, docNo) {
+    var $btnSubmit = $(form).find('button[type="submit"]');
+    $btnSubmit.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>กำลังประมวลผล...');
+
+    var url = docNo ? 'api/register_update.php' : 'api/register_save.php';
+    var formData = $(form).serialize();
+    if (docNo) {
+      formData += '&DocNo=' + docNo;
+    }
+
+    $.ajax({
+      url: url,
+      type: 'POST',
+      dataType: 'json',
+      data: formData
+    })
+    .done(function (res) {
         if (res && res.success) {
           var isUpdate = docNo ? true : false;
 
@@ -1283,8 +1388,7 @@ $(function () {
       .always(function () {
         $btnSubmit.prop('disabled', false).html('<i class="fas fa-save mr-2"></i> บันทึกข้อมูลการขึ้นทะเบียน');
       });
-    }
-  });
+  }
 
   // Add/Edit Employee Modal Form Validation
   $('#empModalForm').validate({
