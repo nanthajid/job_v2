@@ -37,10 +37,16 @@ try {
     $sql = "
         SELECT
             r.DocNo,
+            r.EqNo,
+            r.PotNo,
+            r.QNo,
             e.EmpID,
+            e.Titles,
             e.EmpName,
+            e.SexNo,
             e.KNo,
             e.Phone,
+            e.lineID,
             e.Address,
             k.KName
         FROM $table r

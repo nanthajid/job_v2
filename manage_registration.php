@@ -365,7 +365,7 @@ $pdo = getDB();
 
 <!-- ===== Modal: Edit ===== -->
 <div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-hidden="true">
-  <div class="modal-dialog modal-lg" role="document">
+  <div class="modal-dialog modal-xl" role="document">
     <div class="modal-content" style="border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
       <div class="modal-header text-white" style="background: linear-gradient(135deg, var(--gov-navy) 0%, var(--gov-royal) 100%); border-bottom: 3px solid var(--gov-gold); border-radius: 12px 12px 0 0;">
         <h5 class="modal-title text-white" id="editModalTitle" style="font-weight: 600;">
@@ -377,25 +377,113 @@ $pdo = getDB();
         <input type="hidden" id="editType" name="type">
         <input type="hidden" id="editDocNo" name="docNo">
         <div class="modal-body px-4 pt-4 pb-2">
-          <div class="form-group">
-            <label class="form-label">ชื่อ-นามสกุล <span class="text-danger">*</span></label>
-            <input type="text" id="editEmpName" name="EmpName" class="form-control" required>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label">คำนำหน้า <span class="text-danger">*</span></label>
+                <select id="editTitles" name="Titles" class="form-control" required>
+                  <option value="">— เลือกคำนำหน้า —</option>
+                  <?php
+                  $titlesRows = $pdo->query("SELECT TitleNo, Title FROM titles ORDER BY TitleNo")->fetchAll();
+                  foreach ($titlesRows as $t):
+                  ?>
+                    <option value="<?= (int)$t['TitleNo'] ?>"><?= htmlspecialchars($t['Title']) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label">ชื่อ-นามสกุล <span class="text-danger">*</span></label>
+                <input type="text" id="editEmpName" name="EmpName" class="form-control" required>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label">เพศ <span class="text-danger">*</span></label>
+                <select id="editSexNo" name="SexNo" class="form-control" required>
+                  <option value="">— เลือกเพศ —</option>
+                  <?php
+                  $sexRows = $pdo->query("SELECT SexNo, SexName FROM sex ORDER BY SexNo")->fetchAll();
+                  foreach ($sexRows as $s):
+                  ?>
+                    <option value="<?= (int)$s['SexNo'] ?>"><?= htmlspecialchars($s['SexName']) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label">เขต <span class="text-danger">*</span></label>
+                <select id="editKNo" name="KNo" class="form-control select2" required>
+                  <option value="">— เลือกเขต —</option>
+                  <?php
+                  $kateRows = $pdo->query("SELECT KNo, KName FROM kate ORDER BY KNo")->fetchAll();
+                  foreach ($kateRows as $k):
+                  ?>
+                    <option value="<?= (int)$k['KNo'] ?>"><?= htmlspecialchars($k['KName']) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label">วุฒิการศึกษา <span class="text-danger">*</span></label>
+                <select id="editEqNo" name="EqNo" class="form-control select2" required>
+                  <option value="">— เลือกวุฒิ —</option>
+                  <?php
+                  $eduRows = $pdo->query("SELECT EqNo, EqName FROM educational_qualification ORDER BY EqNo")->fetchAll();
+                  foreach ($eduRows as $e):
+                  ?>
+                    <option value="<?= (int)$e['EqNo'] ?>"><?= htmlspecialchars($e['EqName']) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label">ตำแหน่ง <span class="text-danger">*</span></label>
+                <select id="editPotNo" name="PotNo" class="form-control select2" required>
+                  <option value="">— เลือกตำแหน่ง —</option>
+                  <?php
+                  $potRows = $pdo->query("SELECT PotNo, PotName FROM emp_position ORDER BY PotNo")->fetchAll();
+                  foreach ($potRows as $p):
+                  ?>
+                    <option value="<?= (int)$p['PotNo'] ?>"><?= htmlspecialchars($p['PotName']) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label">สาเหตุที่ออกจากงาน <span class="text-danger">*</span></label>
+                <select id="editQNo" name="QNo" class="form-control select2" required>
+                  <option value="">— เลือกสาเหตุ —</option>
+                  <?php
+                  $quitRows = $pdo->query("SELECT QNo, QName FROM quit ORDER BY QNo")->fetchAll();
+                  foreach ($quitRows as $q):
+                  ?>
+                    <option value="<?= (int)$q['QNo'] ?>"><?= htmlspecialchars($q['QName']) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label">เบอร์โทรศัพท์</label>
+                <input type="text" id="editPhone" name="Phone" class="form-control" maxlength="15">
+              </div>
+            </div>
           </div>
           <div class="form-group">
-            <label class="form-label">เขต <span class="text-danger">*</span></label>
-            <select id="editKNo" name="KNo" class="form-control select2" required>
-              <option value="">— เลือกเขต —</option>
-              <?php
-              $kateRows = $pdo->query("SELECT KNo, KName FROM kate ORDER BY KNo")->fetchAll();
-              foreach ($kateRows as $k):
-              ?>
-                <option value="<?= (int)$k['KNo'] ?>"><?= htmlspecialchars($k['KName']) ?></option>
-              <?php endforeach; ?>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">เบอร์โทรศัพท์</label>
-            <input type="text" id="editPhone" name="Phone" class="form-control" maxlength="15">
+            <label class="form-label">Line ID</label>
+            <input type="text" id="editLineID" name="lineID" class="form-control">
           </div>
           <div class="form-group">
             <label class="form-label">ที่อยู่</label>
@@ -649,9 +737,15 @@ $(function () {
         var data = res.data;
         $('#editType').val(type);
         $('#editDocNo').val(docNo);
+        $('#editTitles').val(data.Titles || '').trigger('change');
         $('#editEmpName').val(data.EmpName || '');
+        $('#editSexNo').val(data.SexNo || '').trigger('change');
         $('#editKNo').val(data.KNo || '').trigger('change');
+        $('#editEqNo').val(data.EqNo || '').trigger('change');
+        $('#editPotNo').val(data.PotNo || '').trigger('change');
+        $('#editQNo').val(data.QNo || '').trigger('change');
         $('#editPhone').val(data.Phone || '');
+        $('#editLineID').val(data.lineID || '');
         $('#editAddress').val(data.Address || '');
         $('#editModal').modal('show');
       }
