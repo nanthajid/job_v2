@@ -4,85 +4,55 @@ requireLoginApi();
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../config/database.php';
 
-// ===== DataTables server-side params =====
-$draw   = (int)($_GET['draw']   ?? 1);
-$start  = max(0, (int)($_GET['start']  ?? 0));
-$length = (int)($_GET['length'] ?? 25);
-if ($length <= 0 || $length > 200) {
-    $length = 25;
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    http_response_code(405);
+    echo json_encode(['success' => false, 'message' => 'รองรับเฉพาะ GET'], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
-$search = trim($_GET['search']['value'] ?? '');
+$empID = trim($_GET['empID'] ?? '');
+$empName = trim($_GET['empName'] ?? '');
 
-// คอลัมน์ที่ sort ได้ — index ตรงกับฝั่ง UI
-$columnsMap = [
-    1 => 'e.EmpID',
-    2 => 'e.EmpName',
-    3 => 's.SexName',
-    4 => 'k.KName',
-];
-$orderColIdx = (int)($_GET['order'][0]['column'] ?? 1);
-$orderDir    = strtolower($_GET['order'][0]['dir'] ?? 'asc') === 'desc' ? 'DESC' : 'ASC';
-$orderCol    = $columnsMap[$orderColIdx] ?? 'e.EmpID';
+try {
+    $pdo = getDB();
 
-$pdo = getDB();
+    $sql = "
+        SELECT
+            e.EmpID,
+            e.EmpName,
+            e.KNo,
+            k.KName
+        FROM employee e
+        LEFT JOIN kate k ON e.KNo = k.KNo
+        WHERE 1=1
+    ";
 
-// SQL หลัก — join sex/kate และกรองเฉพาะ employee ที่มี register record (EmpID ไม่ว่าง)
-$baseSql = "FROM employee e
-            LEFT JOIN titles t ON t.TitleNo = e.Titles
-            LEFT JOIN sex    s ON s.SexNo = e.SexNo
-            LEFT JOIN kate   k ON k.KNo   = e.KNo
-            WHERE EXISTS (
-                SELECT 1 FROM register r
-                WHERE r.EmpID = e.EmpID
-                  AND r.EmpID IS NOT NULL
-                  AND r.EmpID <> ''
-            )";
+    $params = [];
 
-// ยอดรวมทั้งหมด (ใช้เงื่อนไขเดียวกัน แต่ไม่มี search filter)
-$total = (int)$pdo->query("SELECT COUNT(*) " . $baseSql)->fetchColumn();
+    if ($empID) {
+        $sql .= " AND e.EmpID LIKE :empID";
+        $params[':empID'] = "%$empID%";
+    }
 
-$where  = '';
-$params = [];
-if ($search !== '') {
-    $where = " AND (e.EmpID LIKE :s1 OR e.EmpName LIKE :s2 OR k.KName LIKE :s3 OR s.SexName LIKE :s4)";
-    $like  = '%' . $search . '%';
-    $params = [':s1' => $like, ':s2' => $like, ':s3' => $like, ':s4' => $like];
+    if ($empName) {
+        $sql .= " AND e.EmpName LIKE :empName";
+        $params[':empName'] = "%$empName%";
+    }
+
+    $sql .= " ORDER BY e.EmpID DESC LIMIT 100";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    echo json_encode([
+        'success' => true,
+        'data' => $data,
+        'count' => count($data)
+    ], JSON_UNESCAPED_UNICODE);
+
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
 }
-
-// ยอดหลัง search filter
-$cntStmt = $pdo->prepare("SELECT COUNT(*) " . $baseSql . $where);
-$cntStmt->execute($params);
-$filtered = (int)$cntStmt->fetchColumn();
-
-// ดึงข้อมูล paginated
-$sql = "SELECT e.EmpID, t.Title AS TitleName, e.EmpName, s.SexName, k.KName "
-     . $baseSql . $where
-     . " ORDER BY $orderCol $orderDir"
-     . " LIMIT :limit OFFSET :offset";
-
-$stmt = $pdo->prepare($sql);
-foreach ($params as $k => $v) {
-    $stmt->bindValue($k, $v, PDO::PARAM_STR);
-}
-$stmt->bindValue(':limit',  $length, PDO::PARAM_INT);
-$stmt->bindValue(':offset', $start,  PDO::PARAM_INT);
-$stmt->execute();
-$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-$data = array_map(function ($r) {
-    $fullName = ($r['TitleName'] ? $r['TitleName'] . ' ' : '') . ($r['EmpName'] ?? '');
-    return [
-        'EmpID'   => $r['EmpID'],
-        'EmpName' => $fullName,
-        'SexName' => $r['SexName'] ?? '',
-        'KName'   => $r['KName']   ?? '',
-    ];
-}, $rows);
-
-echo json_encode([
-    'draw'            => $draw,
-    'recordsTotal'    => $total,
-    'recordsFiltered' => $filtered,
-    'data'            => $data,
-], JSON_UNESCAPED_UNICODE);
+?>

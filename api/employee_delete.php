@@ -10,53 +10,27 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$empID = trim($_POST['EmpID'] ?? '');
+$empID = trim($_POST['empID'] ?? '');
+
 if (!preg_match('/^\d{13}$/', $empID)) {
     http_response_code(422);
-    echo json_encode(['success' => false, 'message' => 'เลขบัตรประชาชนไม่ถูกต้อง'], JSON_UNESCAPED_UNICODE);
-    exit;
-}
-
-$pdo = getDB();
-
-$check = $pdo->prepare("SELECT EmpName FROM employee WHERE EmpID = :id");
-$check->execute([':id' => $empID]);
-$row = $check->fetch();
-if (!$row) {
-    http_response_code(404);
-    echo json_encode(['success' => false, 'message' => 'ไม่พบข้อมูลผู้ลงทะเบียน'], JSON_UNESCAPED_UNICODE);
+    echo json_encode(['success' => false, 'message' => 'เลขบัตรไม่ถูกต้อง'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 try {
-    $pdo->beginTransaction();
+    $pdo = getDB();
 
-    $delReg = $pdo->prepare("DELETE FROM register WHERE EmpID = :id");
-    $delReg->execute([':id' => $empID]);
-    $regCount = $delReg->rowCount();
-
-    $delSr = $pdo->prepare("DELETE FROM selft_rep WHERE EmpID = :id");
-    $delSr->execute([':id' => $empID]);
-    $srCount = $delSr->rowCount();
-
-    $delEmp = $pdo->prepare("DELETE FROM employee WHERE EmpID = :id");
-    $delEmp->execute([':id' => $empID]);
-
-    $pdo->commit();
+    $stmt = $pdo->prepare("DELETE FROM employee WHERE EmpID = :empID");
+    $stmt->execute([':empID' => $empID]);
 
     echo json_encode([
         'success' => true,
-        'message' => 'ลบข้อมูลเรียบร้อย',
-        'data'    => [
-            'EmpID'             => $empID,
-            'register_deleted'  => $regCount,
-            'selft_rep_deleted' => $srCount,
-        ],
+        'message' => 'ลบข้อมูลเรียบร้อย'
     ], JSON_UNESCAPED_UNICODE);
-} catch (PDOException $e) {
-    if ($pdo->inTransaction()) {
-        $pdo->rollBack();
-    }
+
+} catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'ลบไม่สำเร็จ: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+    echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
 }
+?>

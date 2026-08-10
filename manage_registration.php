@@ -204,6 +204,25 @@ $pdo = getDB();
       <div class="container-fluid">
         <div id="formAlert" class="alert d-none shadow-sm" role="alert"></div>
 
+        <!-- Tab Navigation -->
+        <ul class="nav nav-tabs nav-fill mb-3" id="managementTabs" role="tablist" style="background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <li class="nav-item" role="presentation">
+            <a class="nav-link active" id="tab-registration" data-toggle="tab" href="#content-registration" role="tab" aria-controls="content-registration" aria-selected="true" style="font-weight: 600; color: var(--gov-navy);">
+              <i class="fas fa-clipboard-check mr-2"></i>ขึ้นทะเบียน/รายงานตัว
+            </a>
+          </li>
+          <li class="nav-item" role="presentation">
+            <a class="nav-link" id="tab-employee" data-toggle="tab" href="#content-employee" role="tab" aria-controls="content-employee" aria-selected="false" style="font-weight: 600; color: var(--gov-navy);">
+              <i class="fas fa-users mr-2"></i>จัดการข้อมูล Employee ทั้งหมด
+            </a>
+          </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="managementTabsContent">
+          <!-- Tab 1: Registration/Self-Report -->
+          <div class="tab-pane fade show active" id="content-registration" role="tabpanel" aria-labelledby="tab-registration" style="display: block;">
+
         <div class="gov-card">
           <div class="gov-card-header bg-navy text-white">
             <i class="fas fa-search fa-lg text-white mr-3"></i>
@@ -275,6 +294,70 @@ $pdo = getDB();
                   </tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+          </div>
+
+          <!-- Tab 2: Employee Management -->
+          <div class="tab-pane fade" id="content-employee" role="tabpanel" aria-labelledby="tab-employee">
+            <div class="gov-card">
+              <div class="gov-card-header bg-navy text-white">
+                <i class="fas fa-search fa-lg text-white mr-3"></i>
+                <h3 class="gov-card-title text-white">ค้นหาข้อมูล Employee</h3>
+              </div>
+              <div class="gov-card-body">
+                <div class="row">
+                  <div class="col-md-4">
+                    <label class="form-label">เลขบัตรประชาชน</label>
+                    <input type="text" id="empFilterID" class="form-control" placeholder="กรอกเลขบัตร" maxlength="13">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">ชื่อ-นามสกุล</label>
+                    <input type="text" id="empFilterName" class="form-control" placeholder="กรอกชื่อ">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">&nbsp;</label>
+                    <div>
+                      <button id="btnSearchEmp" class="btn btn-gov-primary">
+                        <i class="fas fa-search mr-2"></i>ค้นหา
+                      </button>
+                      <button id="btnResetEmp" class="btn btn-secondary ml-2">
+                        <i class="fas fa-redo mr-2"></i>ล้าง
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="gov-card">
+              <div class="gov-card-header bg-navy text-white">
+                <i class="fas fa-list fa-lg text-white mr-3"></i>
+                <h3 class="gov-card-title text-white">รายการ Employee (<span id="empResultCount">0</span>)</h3>
+              </div>
+              <div class="gov-card-body p-0">
+                <div class="table-responsive">
+                  <table class="table table-hover mb-0" id="empDataTable">
+                    <thead style="background: #F8FAFC;">
+                      <tr>
+                        <th style="width: 140px;">เลขบัตร</th>
+                        <th>ชื่อ-นามสกุล</th>
+                        <th style="width: 100px;">เขต</th>
+                        <th style="width: 180px; text-align: center;">จัดการ</th>
+                      </tr>
+                    </thead>
+                    <tbody id="empDataBody">
+                      <tr>
+                        <td colspan="4" class="text-center py-5 text-muted">
+                          <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                          ไม่มีข้อมูล
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -781,6 +864,127 @@ $(function () {
     })
     .always(function() {
       $btn.prop('disabled', false).html('<i class="fas fa-save mr-2"></i>บันทึก');
+    });
+  });
+
+  // ===== TAB 2: Employee Management =====
+  $('#btnSearchEmp').on('click', loadEmployeeData);
+
+  $('#btnResetEmp').on('click', function() {
+    $('#empFilterID').val('');
+    $('#empFilterName').val('');
+    loadEmployeeData();
+  });
+
+  $('#empFilterID').on('input', function() {
+    this.value = this.value.replace(/\D/g, '').slice(0, 13);
+  });
+
+  function loadEmployeeData() {
+    var empID = $('#empFilterID').val().trim();
+    var empName = $('#empFilterName').val().trim();
+
+    $.ajax({
+      url: 'api/employee_list.php',
+      type: 'GET',
+      dataType: 'json',
+      data: { empID: empID, empName: empName }
+    })
+    .done(function(res) {
+      if (res && res.success) {
+        var tbody = $('#empDataBody');
+        tbody.empty();
+
+        if (res.data && res.data.length > 0) {
+          res.data.forEach(function(row) {
+            var tr = $('<tr>')
+              .append($('<td>').text(row.EmpID))
+              .append($('<td>').text(row.EmpName || '-'))
+              .append($('<td>').text(row.KName || '-'))
+              .append($('<td>').html(
+                '<button class="btn btn-sm btn-info btnEditEmp" data-empid="' + row.EmpID + '" title="แก้ไข"><i class="fas fa-edit"></i> แก้ไข</button> ' +
+                '<button class="btn btn-sm btn-danger btnDeleteEmp" data-empid="' + row.EmpID + '" title="ลบ"><i class="fas fa-trash"></i> ลบ</button>'
+              ));
+            tbody.append(tr);
+          });
+        } else {
+          tbody.append('<tr><td colspan="4" class="text-center py-5 text-muted"><i class="fas fa-inbox fa-2x mb-2 d-block"></i>ไม่มีข้อมูล</td></tr>');
+        }
+
+        $('#empResultCount').text(res.count);
+      }
+    })
+    .fail(function() {
+      Swal.fire({ icon: 'error', title: 'ผิดพลาด', text: 'เกิดข้อผิดพลาดในการดึงข้อมูล' });
+    });
+  }
+
+  // Edit Employee button
+  $(document).on('click', '.btnEditEmp', function() {
+    var empID = $(this).data('empid');
+
+    $.ajax({
+      url: 'api/employee_detail.php',
+      type: 'GET',
+      dataType: 'json',
+      data: { empID: empID }
+    })
+    .done(function(res) {
+      if (res && res.success) {
+        var data = res.data;
+        $('#editType').val('employee');
+        $('#editDocNo').val(empID);
+        $('#editTitles').val(data.Titles || '').trigger('change');
+        $('#editEmpName').val(data.EmpName || '');
+        $('#editSexNo').val(data.SexNo || '').trigger('change');
+        $('#editKNo').val(data.KNo || '').trigger('change');
+        $('#editEqNo').val(data.EqNo || '').trigger('change');
+        $('#editPotNo').val(data.PotNo || '').trigger('change');
+        $('#editQNo').val(data.QNo || '').trigger('change');
+        $('#editPhone').val(data.Phone || '');
+        $('#editLineID').val(data.lineID || '');
+        $('#editAddress').val(data.Address || '');
+        $('#editModal').modal('show');
+      }
+    })
+    .fail(function() {
+      Swal.fire({ icon: 'error', title: 'ผิดพลาด', text: 'ไม่สามารถโหลดข้อมูลได้' });
+    });
+  });
+
+  // Delete Employee button
+  $(document).on('click', '.btnDeleteEmp', function() {
+    var empID = $(this).data('empid');
+
+    Swal.fire({
+      icon: 'warning',
+      title: 'ยืนยันการลบ',
+      text: 'คุณแน่ใจหรือที่จะลบข้อมูลพนักงานนี้?',
+      showCancelButton: true,
+      confirmButtonColor: '#dc3545',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'ลบ',
+      cancelButtonText: 'ยกเลิก'
+    }).then(function(result) {
+      if (result.isConfirmed) {
+        $.ajax({
+          url: 'api/employee_delete.php',
+          type: 'POST',
+          dataType: 'json',
+          data: { empID: empID }
+        })
+        .done(function(res) {
+          if (res && res.success) {
+            Toast.fire({ icon: 'success', title: 'ลบข้อมูลเรียบร้อย' });
+            loadEmployeeData();
+          } else {
+            Swal.fire({ icon: 'error', title: 'ผิดพลาด', text: res.message || 'ไม่สามารถลบได้' });
+          }
+        })
+        .fail(function() {
+          Swal.fire({ icon: 'error', title: 'ผิดพลาด', text: 'เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์' });
+        });
+      }
     });
   });
 });
