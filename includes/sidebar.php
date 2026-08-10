@@ -50,17 +50,63 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
         </li>
 
         <li class="nav-item">
-          <a href="alien_insured.php" class="nav-link <?= $current_page === 'alien_insured' ? 'active' : '' ?>">
-            <i class="nav-icon fas fa-passport"></i>
-            <p>ขึ้นทะเบียนผู้ประกันตนแรงงานต่างด้าว</p>
+          <a href="manage_registration.php" class="nav-link <?= $current_page === 'manage_registration' ? 'active' : '' ?>">
+            <i class="nav-icon fas fa-cog"></i>
+            <p>จัดการขึ้นทะเบียน/รายงานตัว</p>
           </a>
         </li>
 
-        <li class="nav-item">
-          <a href="alien_insured_checkin.php" class="nav-link <?= $current_page === 'alien_insured_checkin' ? 'active' : '' ?>">
-            <i class="nav-icon fas fa-clipboard-user"></i>
-            <p>รายงานตัวผู้ประกันตนแรงงานต่างด้าว</p>
+        <?php
+        $alien_report_pages = ['alien_insured_summary_report', 'alien_insured_report_print', 'alien_insured_checkin_summary_report', 'alien_insured_checkin_report_print'];
+        $alien_pages = array_merge(['alien_insured', 'alien_insured_checkin'], $alien_report_pages);
+        $is_alien_active = in_array($current_page, $alien_pages);
+        $is_alien_report_active = in_array($current_page, $alien_report_pages);
+        ?>
+        <li class="nav-item <?= $is_alien_active ? 'menu-open' : '' ?>">
+          <a href="#" class="nav-link <?= $is_alien_active ? 'active' : '' ?>">
+            <i class="nav-icon fas fa-passport"></i>
+            <p>
+              ผู้ประกันตนแรงงานต่างด้าว
+              <i class="right fas fa-angle-left"></i>
+            </p>
           </a>
+          <ul class="nav nav-treeview">
+            <li class="nav-item">
+              <a href="alien_insured.php" class="nav-link <?= $current_page === 'alien_insured' ? 'active' : '' ?>">
+                <i class="far fa-circle nav-icon"></i>
+                <p>ขึ้นทะเบียน</p>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="alien_insured_checkin.php" class="nav-link <?= $current_page === 'alien_insured_checkin' ? 'active' : '' ?>">
+                <i class="far fa-circle nav-icon"></i>
+                <p>รายงานตัว</p>
+              </a>
+            </li>
+            <li class="nav-item <?= $is_alien_report_active ? 'menu-open' : '' ?>">
+              <a href="#" class="nav-link <?= $is_alien_report_active ? 'active' : '' ?>">
+                <i class="far fa-circle nav-icon"></i>
+                <p>
+                  รายงานสรุป
+                  <i class="right fas fa-angle-left"></i>
+                </p>
+              </a>
+              <ul class="nav nav-treeview">
+                <li class="nav-item">
+                  <a href="alien_insured_summary_report.php" class="nav-link <?= in_array($current_page, ['alien_insured_summary_report', 'alien_insured_report_print'], true) ? 'active' : '' ?>">
+                    <i class="far fa-dot-circle nav-icon"></i>
+                    <p>รายงานสรุปขึ้นทะเบียน</p>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a href="alien_insured_checkin_summary_report.php" class="nav-link <?= in_array($current_page, ['alien_insured_checkin_summary_report', 'alien_insured_checkin_report_print'], true) ? 'active' : '' ?>">
+                    <i class="far fa-dot-circle nav-icon"></i>
+                    <p>รายงานสรุปรายงานตัว</p>
+                  </a>
+                </li>
+              </ul>
+            </li>
+          </ul>
         </li>
 
         <li class="nav-item">
@@ -96,7 +142,7 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
           </a>
         </li>
         <?php
-        $report_pages = ['daily_report_print', 'daily_checkin_print', 'list', 'gotjob', 'comparison_report', 'edu_comparison_report', 'pot_comparison_report', 'alien_insured_report_print', 'alien_insured_checkin_report_print'];
+        $report_pages = ['daily_report_print', 'daily_checkin_print', 'list', 'gotjob', 'comparison_report', 'edu_comparison_report', 'pot_comparison_report'];
         $is_report_active = in_array($current_page, $report_pages);
         ?>
         <li class="nav-item <?= $is_report_active ? 'menu-open' : '' ?>">
@@ -148,18 +194,6 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
               <a href="pot_comparison_report.php" class="nav-link <?= $current_page === 'pot_comparison_report.php' ? 'active' : '' ?>">
                 <i class="far fa-circle nav-icon"></i>
                 <p>เปรียบเทียบ (ตำแหน่งงาน)</p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="alien_insured_report_print.php" class="nav-link <?= $current_page === 'alien_insured_report_print' ? 'active' : '' ?>">
-                <i class="far fa-circle nav-icon"></i>
-                <p>ขึ้นทะเบียนผู้ประกันตนต่างด้าว</p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="alien_insured_checkin_report_print.php" class="nav-link <?= $current_page === 'alien_insured_checkin_report_print' ? 'active' : '' ?>">
-                <i class="far fa-circle nav-icon"></i>
-                <p>รายงานตัวผู้ประกันตนต่างด้าว</p>
               </a>
             </li>
           </ul>
